@@ -1,0 +1,396 @@
+---
+title: 'Window'
+description: 'Draggable, resizable window component with macOS-style controls'
+icon: 'window-maximize'
+---
+
+## Overview
+
+The `Window` component creates draggable, macOS-style windows with a title bar, traffic light controls (close, minimize, maximize), and content area. It uses `react-draggable` for drag functionality and manages maximization state internally.
+
+## Features
+
+- **Draggable**: Click and drag from the title bar to reposition
+- **Traffic Light Controls**: Red (close), yellow (minimize), green (maximize/restore)
+- **Maximization**: Full-screen mode that fills viewport between MenuBar and Dock
+- **Focus Management**: Brings window to front on click
+- **Minimization Support**: Can be hidden via isMinimized prop
+- **Bounded Dragging**: Prevents windows from being dragged above the MenuBar
+
+## Props
+
+<ParamField path="title" type="string" required>
+  Window title displayed in the center of the title bar
+</ParamField>
+
+<ParamField path="children" type="React.ReactNode" required>
+  Content to render inside the window body
+</ParamField>
+
+<ParamField path="onClose" type="() => void" required>
+  Callback fired when the red close button is clicked
+</ParamField>
+
+<ParamField path="onMinimize" type="() => void" required>
+  Callback fired when the yellow minimize button is clicked
+</ParamField>
+
+<ParamField path="onFocus" type="() => void" required>
+  Callback fired when the window is clicked (used for z-index management)
+</ParamField>
+
+<ParamField path="zIndex" type="number" required>
+  Z-index value for stacking order (managed by parent Desktop component)
+</ParamField>
+
+<ParamField path="defaultPosition" type="{ x: number; y: number }" required>
+  Initial position of the window when first rendered
+</ParamField>
+
+<ParamField path="width" type="number" default="720">
+  Width of the window in pixels (ignored when maximized)
+</ParamField>
+
+<ParamField path="height" type="number" default="500">
+  Height of the window in pixels (ignored when maximized)
+</ParamField>
+
+<ParamField path="isMinimized" type="boolean" default="false">
+  Whether the window is currently minimized (hidden)
+</ParamField>
+
+## Interface Definition
+
+```typescript
+interface WindowProps {
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+  onMinimize: () => void;
+  onFocus: () => void;
+  zIndex: number;
+  defaultPosition: { x: number; y: number };
+  width?: number;
+  height?: number;
+  isMinimized?: boolean;
+}
+```
+
+## Usage Examples
+
+<CodeGroup>
+
+```tsx Basic Window
+import Window from "./components/Window";
+
+function App() {
+  return (
+    <Window
+      title="My Application"
+      onClose={() => console.log("closed")}
+      onMinimize={() => console.log("minimized")}
+      onFocus={() => console.log("focused")}
+      zIndex={10}
+      defaultPosition={{ x: 100, y: 100 }}
+      width={600}
+      height={400}
+    >
+      <div className="p-4">
+        <h1>Window Content</h1>
+      </div>
+    </Window>
+  );
+}
+```
+
+```tsx With State Management
+import { useState } from "react";
+import Window from "./components/Window";
+
+function App() {
+  const [isOpen, setIsOpen] = useState(true);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [zIndex, setZIndex] = useState(10);
+
+  if (!isOpen) return null;
+
+  return (
+    <Window
+      title="Stateful Window"
+      onClose={() => setIsOpen(false)}
+      onMinimize={() => setIsMinimized(true)}
+      onFocus={() => setZIndex((z) => z + 1)}
+      zIndex={zIndex}
+      defaultPosition={{ x: 150, y: 150 }}
+      isMinimized={isMinimized}
+    >
+      <div>Content here</div>
+    </Window>
+  );
+}
+```
+
+```tsx Multiple Windows
+import { useState } from "react";
+import Window from "./components/Window";
+
+function App() {
+  const [windows, setWindows] = useState([
+    { id: 1, title: "Window 1", zIndex: 10 },
+    { id: 2, title: "Window 2", zIndex: 11 },
+  ]);
+  const [topZ, setTopZ] = useState(11);
+
+  const bringToFront = (id: number) => {
+    const newZ = topZ + 1;
+    setTopZ(newZ);
+    setWindows((ws) => 
+      ws.map((w) => w.id === id ? { ...w, zIndex: newZ } : w)
+    );
+  };
+
+  return (
+    <>
+      {windows.map((w) => (
+        <Window
+          key={w.id}
+          title={w.title}
+          onClose={() => setWindows((ws) => ws.filter((win) => win.id !== w.id))}
+          onMinimize={() => {}}
+          onFocus={() => bringToFront(w.id)}
+          zIndex={w.zIndex}
+          defaultPosition={{ x: 100 + w.id * 20, y: 100 + w.id * 20 }}
+        >
+          <div>Content for {w.title}</div>
+        </Window>
+      ))}
+    </>
+  );
+}
+```
+
+</CodeGroup>
+
+## Window Structure
+
+### Title Bar
+
+The title bar contains three sections:
+
+```tsx
+<div className="win-titlebar ...">
+  {/* Traffic light buttons */}
+  <div className="flex items-center gap-1.5">
+    <button onClick={onClose} className="... bg-[#ff5f56]">
+      <span>✕</span>
+    </button>
+    <button onClick={onMinimize} className="... bg-[#ffbd2e]">
+      <span>−</span>
+    </button>
+    <button onClick={() => setIsMaximized(!isMaximized)} className="... bg-[#27c93f]">
+      <span>{isMaximized ? "⤡" : "⤢"}</span>
+    </button>
+  </div>
+  
+  {/* Title text */}
+  <span className="flex-1 text-center ...">{title}</span>
+</div>
+```
+
+### Content Area
+
+Scrollable content area:
+
+```tsx
+<div className="flex-1 overflow-auto">
+  {children}
+</div>
+```
+
+## Draggable Behavior
+
+The component wraps content with `react-draggable`:
+
+```typescript
+import Draggable from "react-draggable";
+
+return (
+  <Draggable
+    nodeRef={nodeRef}
+    handle=".win-titlebar"      // Only titlebar is draggable
+    cancel=".win-btn"           // Buttons stop propagation
+    defaultPosition={defaultPosition}
+    bounds={{ top: 30, left: 0 }} // Prevent dragging above MenuBar
+  >
+    {windowContent}
+  </Draggable>
+);
+```
+
+### Key Properties
+
+- **handle**: `.win-titlebar` - Only the title bar initiates drag
+- **cancel**: `.win-btn` - Buttons don't trigger drag
+- **bounds**: Prevents windows from going off-screen
+- **nodeRef**: Avoids React findDOMNode warnings
+
+## Maximization
+
+When maximized, the window fills the available space:
+
+```typescript
+const [isMaximized, setIsMaximized] = useState(false);
+
+const maximizedStyle = {
+  zIndex,
+  position: "fixed",
+  top: 28,                              // Below MenuBar
+  left: 0,
+  width: "100vw",
+  height: "calc(100vh - 28px - 80px)", // Between MenuBar and Dock
+};
+
+const normalStyle = {
+  zIndex,
+  width,
+  height,
+};
+```
+
+Maximized windows are not wrapped in `<Draggable>` and lose rounded corners.
+
+## Minimization
+
+Minimized windows are hidden but remain in the DOM:
+
+```typescript
+style={{
+  visibility: isMinimized ? "hidden" : "visible",
+  pointerEvents: isMinimized ? "none" : "auto",
+}}
+```
+
+This allows for smooth restoration without losing state.
+
+## Traffic Light Controls
+
+MacOS-style colored buttons with hover effects:
+
+<CodeGroup>
+
+```tsx Close Button
+<button
+  onMouseDown={(e) => e.stopPropagation()}
+  onClick={(e) => { e.stopPropagation(); onClose(); }}
+  className="w-4 h-4 rounded-full bg-[#ff5f56] hover:brightness-125 ..."
+>
+  <span className="... opacity-0 group-hover:opacity-100">✕</span>
+</button>
+```
+
+```tsx Minimize Button
+<button
+  onMouseDown={(e) => e.stopPropagation()}
+  onClick={(e) => { e.stopPropagation(); onMinimize(); }}
+  className="w-4 h-4 rounded-full bg-[#ffbd2e] hover:brightness-125 ..."
+>
+  <span className="... opacity-0 group-hover:opacity-100">−</span>
+</button>
+```
+
+```tsx Maximize Button
+<button
+  onMouseDown={(e) => e.stopPropagation()}
+  onClick={(e) => { e.stopPropagation(); setIsMaximized((v) => !v); }}
+  className="w-4 h-4 rounded-full bg-[#27c93f] hover:brightness-125 ..."
+>
+  <span className="... opacity-0 group-hover:opacity-100">
+    {isMaximized ? "⤡" : "⤢"}
+  </span>
+</button>
+```
+
+</CodeGroup>
+
+### Event Propagation
+
+Buttons call `stopPropagation()` on both `onMouseDown` and `onClick` to prevent triggering the drag handler.
+
+## Styling
+
+The window uses a dark theme with glassmorphism:
+
+```tsx
+className="
+  flex flex-col 
+  bg-[#1e1e1e]/95          /* Semi-transparent dark background */
+  backdrop-blur-xl          /* Glass effect */
+  border border-white/10    /* Subtle border */
+  shadow-2xl shadow-black/70 /* Deep shadow */
+  rounded-xl                /* Rounded corners (non-maximized) */
+"
+```
+
+### Title Bar Styling
+
+```tsx
+className="
+  flex items-center gap-2 
+  px-4 py-2.5 
+  bg-[#2a2a2a]             /* Slightly lighter than body */
+  border-b border-white/10 
+  cursor-move              /* Indicates draggable */
+  select-none              /* Prevent text selection */
+"
+```
+
+## Focus Management
+
+The `onFocus` callback is triggered when clicking anywhere on the window:
+
+```tsx
+<div onMouseDown={onFocus}>
+  {/* Window content */}
+</div>
+```
+
+The parent component (Desktop) typically uses this to update z-index:
+
+```typescript
+const bringToFront = (id: string) => {
+  topZRef.current += 1;
+  setWindows((ws) => ws.map((w) => 
+    w.id === id ? { ...w, zIndex: topZRef.current } : w
+  ));
+};
+```
+
+## Integration with Desktop
+
+The Window component is designed to work with the Desktop component:
+
+```tsx
+<Window
+  key={window.id}
+  title={window.title}
+  onClose={() => closeWindow(window.id)}
+  onMinimize={() => minimizeWindow(window.id)}
+  onFocus={() => bringToFront(window.id)}
+  zIndex={window.zIndex}
+  defaultPosition={window.defaultPosition}
+  width={window.width}
+  height={window.height}
+  isMinimized={window.isMinimized}
+>
+  {getContent(window.id)}
+</Window>
+```
+
+See [Desktop](/components/desktop) for complete integration details.
+
+## Related Components
+
+- [Desktop](/components/desktop) - Parent container managing multiple windows
+- [Terminal](/components/terminal) - Main application rendered in a Window
+- [Dock](/components/dock) - Launches windows and shows minimized state
+- [MenuBar](/components/menubar) - Top bar that defines window boundaries

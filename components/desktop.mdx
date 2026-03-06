@@ -1,0 +1,286 @@
+---
+title: 'Desktop'
+description: 'Main container component that manages the entire portfolio interface, window state, and user interactions'
+icon: 'computer'
+---
+
+## Overview
+
+The `Desktop` component is the top-level orchestrator of the macOS-inspired portfolio. It manages all window states (both static and dynamic), handles window operations (open, close, minimize, focus), and coordinates between the MenuBar, Dock, and various application windows.
+
+## Key Features
+
+- **Window Management**: Manages both predefined windows (Terminal, Projects, Experience, etc.) and dynamically created document windows
+- **Z-Index Coordination**: Automatically brings focused windows to the front
+- **State Persistence**: Tracks open/minimized states and z-index values
+- **Desktop Icons**: Renders folder icons for quick access
+- **Dynamic Documents**: Creates temporary windows for viewing individual project/work/education details
+
+## Component Interface
+
+<ParamField path="nfqEvents" type="NfqEventRaw[]" default="[]">
+  Optional array of NFQ calendar events to pass to the Calendar component
+</ParamField>
+
+## Types
+
+### WinId
+
+```typescript
+type WinId = "terminal" | "proyectos" | "experiencia" | "estudios" | "fotos" | "calendario";
+```
+
+Valid identifiers for static windows in the application.
+
+### WinState
+
+```typescript
+interface WinState {
+  id: WinId;
+  title: string;
+  isOpen: boolean;
+  isMinimized: boolean;
+  zIndex: number;
+  defaultPosition: { x: number; y: number };
+  width: number;
+  height: number;
+}
+```
+
+State structure for static windows.
+
+### DynWin
+
+```typescript
+interface DynWin {
+  id: string;
+  title: string;
+  content: ReactNode;
+  isMinimized: boolean;
+  zIndex: number;
+  defaultPosition: { x: number; y: number };
+}
+```
+
+State structure for dynamically created document windows.
+
+## Usage Example
+
+```tsx
+import Desktop from "./components/Desktop";
+import type { NfqEventRaw } from "./lib/mongodb.server";
+
+export default function App({ events }: { events: NfqEventRaw[] }) {
+  return <Desktop nfqEvents={events} />;
+}
+```
+
+## Initial Windows Configuration
+
+```typescript
+const INITIAL_WINDOWS: WinState[] = [
+  {
+    id: "terminal",
+    title: "visitor@javier.dev — terminal",
+    isOpen: true,
+    isMinimized: false,
+    zIndex: 10,
+    defaultPosition: { x: 140, y: 50 },
+    width: 720,
+    height: 500,
+  },
+  // ... more windows
+];
+```
+
+## Window Operations
+
+The Desktop component provides several callback functions for window management:
+
+### Static Window Operations
+
+<CodeGroup>
+
+```typescript Opening a Window
+const openWindow = useCallback((id: WinId) => {
+  topZRef.current += 1;
+  const z = topZRef.current;
+  setWindows((ws) =>
+    ws.map((w) => w.id === id ? { ...w, isOpen: true, isMinimized: false, zIndex: z } : w)
+  );
+}, []);
+```
+
+```typescript Closing a Window
+const closeWindow = useCallback((id: WinId) => {
+  setWindows((ws) => ws.map((w) => w.id === id ? { ...w, isOpen: false, isMinimized: false } : w));
+}, []);
+```
+
+```typescript Minimizing a Window
+const minimizeWindow = useCallback((id: WinId) => {
+  setWindows((ws) => ws.map((w) => w.id === id ? { ...w, isMinimized: true } : w));
+}, []);
+```
+
+```typescript Bringing to Front
+const bringToFront = useCallback((id: WinId) => {
+  topZRef.current += 1;
+  const z = topZRef.current;
+  setWindows((ws) => ws.map((w) => w.id === id ? { ...w, zIndex: z } : w));
+}, []);
+```
+
+</CodeGroup>
+
+### Dynamic Window Operations
+
+```typescript
+const openDoc = useCallback((title: string, content: ReactNode) => {
+  topZRef.current += 1;
+  const z = topZRef.current;
+  const id = `doc-${Date.now()}`;
+  const offset = (topZRef.current % 6) * 18;
+  setDynWindows((ws) => [...ws, {
+    id, title, content,
+    isMinimized: false,
+    zIndex: z,
+    defaultPosition: { x: 260 + offset, y: 50 + offset },
+  }]);
+}, []);
+```
+
+## Layout Structure
+
+```tsx
+<div className="w-screen h-screen overflow-hidden relative">
+  {/* Top menu bar */}
+  <MenuBar />
+
+  {/* Desktop area - between MenuBar and Dock */}
+  <div className="absolute top-7 left-0 right-0 bottom-20 overflow-hidden">
+    
+    {/* Desktop folder icons */}
+    <div className="absolute top-4 left-6 flex flex-col gap-5">
+      {folders.map((f) => (
+        <FolderIcon key={f.id} label={f.label} icon={f.icon} onOpen={() => openWindow(f.id)} />
+      ))}
+    </div>
+
+    {/* Static windows */}
+    {windows.filter((w) => w.isOpen).map((w) => (
+      <Window
+        key={w.id}
+        title={w.title}
+        onClose={() => closeWindow(w.id)}
+        onMinimize={() => minimizeWindow(w.id)}
+        onFocus={() => bringToFront(w.id)}
+        zIndex={w.zIndex}
+        defaultPosition={w.defaultPosition}
+        width={w.width}
+        height={w.height}
+        isMinimized={w.isMinimized}
+      >
+        {getContent(w.id)}
+      </Window>
+    ))}
+
+    {/* Dynamic document windows */}
+    {dynWindows.map((w) => (
+      <Window
+        key={w.id}
+        title={w.title}
+        onClose={() => closeDynWin(w.id)}
+        onMinimize={() => minimizeDynWin(w.id)}
+        onFocus={() => focusDynWin(w.id)}
+        zIndex={w.zIndex}
+        defaultPosition={w.defaultPosition}
+        width={480}
+        height={420}
+        isMinimized={w.isMinimized}
+      >
+        {w.content}
+      </Window>
+    ))}
+  </div>
+
+  {/* Bottom dock */}
+  <Dock items={dockItems} />
+</div>
+```
+
+## Integration with Other Components
+
+### MenuBar
+
+Displays at the top with system time and branding. See [MenuBar](/components/menubar) for details.
+
+### Dock
+
+Shows application icons at the bottom. Each dock item can open its corresponding window. See [Dock](/components/dock) for details.
+
+### Window
+
+All applications render inside Window components that handle dragging, controls, and z-index. See [Window](/components/window) for details.
+
+### Terminal
+
+The main interactive application, embedded with `<Terminal embedded />`. See [Terminal](/components/terminal) for details.
+
+## Content Resolution
+
+The Desktop resolves which component to render inside each window:
+
+```typescript
+function getContent(id: WinId): ReactNode {
+  switch (id) {
+    case "terminal":     return <Terminal embedded />;
+    case "proyectos":   return <ProyectosContent onOpenDoc={openDoc} />;
+    case "experiencia": return <ExperienciaContent onOpenDoc={openDoc} />;
+    case "estudios":    return <EstudiosContent onOpenDoc={openDoc} />;
+    case "fotos":       return <PhotoGallery onOpenPhoto={(foto) => openDoc(foto, <PhotoViewer src={`/fotos/${foto}`} name={foto} />)} />;
+    case "calendario":  return <Calendar nfqEvents={nfqEvents} />;
+  }
+}
+```
+
+## Styling
+
+The Desktop uses a full-screen layout with carefully positioned zones:
+
+- **Top 28px**: MenuBar (fixed)
+- **Bottom 80px**: Dock (fixed)
+- **Middle area**: Desktop workspace for icons and windows
+
+All styling uses Tailwind CSS with dark theme colors and backdrop blur effects for a modern macOS aesthetic.
+
+## State Management
+
+### Z-Index Management
+
+The component uses a ref to track the highest z-index:
+
+```typescript
+const topZRef = useRef(10);
+
+// Increment when bringing window to front
+topZRef.current += 1;
+const z = topZRef.current;
+```
+
+### Window State Updates
+
+All window state updates are immutable:
+
+```typescript
+setWindows((ws) => 
+  ws.map((w) => w.id === id ? { ...w, isOpen: true } : w)
+);
+```
+
+## Related Components
+
+- [Window](/components/window) - Draggable window container
+- [Dock](/components/dock) - Application launcher bar
+- [MenuBar](/components/menubar) - Top system bar
+- [Terminal](/components/terminal) - Interactive terminal application

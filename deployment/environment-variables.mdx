@@ -1,0 +1,315 @@
+---
+title: Environment Variables
+description: Configure environment variables for the Portfolio Javier Navas application
+---
+
+The application uses environment variables to configure MongoDB connections and other runtime settings.
+
+## Required Variables
+
+### MONGODB_URI
+
+**Required**: Yes  
+**Type**: String  
+**Description**: MongoDB connection string
+
+The connection string for your MongoDB database. Supports both standard and SRV formats.
+
+```bash
+# MongoDB Atlas (recommended for production)
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority
+
+# Local MongoDB
+MONGODB_URI=mongodb://localhost:27017
+
+# MongoDB with authentication
+MONGODB_URI=mongodb://username:password@host:27017/database?authSource=admin
+```
+
+<Warning>
+The application will throw an error if `MONGODB_URI` is not defined: `MONGODB_URI no está definida en .env`
+</Warning>
+
+### MONGODB_DB
+
+**Required**: No  
+**Type**: String  
+**Default**: `portafolio`  
+**Description**: Database name to use in MongoDB
+
+Specifies which database to query for NFQ events.
+
+```bash
+MONGODB_DB=portafolio
+```
+
+### MONGODB_COLLECTION_NFQ
+
+**Required**: No  
+**Type**: String  
+**Default**: `nfq`  
+**Description**: Collection name for NFQ events
+
+Specifies which collection contains the NFQ (No Failure Questions) events.
+
+```bash
+MONGODB_COLLECTION_NFQ=nfq
+```
+
+## Configuration by Environment
+
+### Local Development
+
+Create a `.env` file in the project root:
+
+```bash
+# .env
+MONGODB_URI=mongodb://localhost:27017
+MONGODB_DB=portafolio
+MONGODB_COLLECTION_NFQ=nfq
+```
+
+The application uses `dotenv` to load these variables:
+
+```typescript
+import * as dotenv from "dotenv";
+import { resolve } from "path";
+
+dotenv.config({ path: resolve(process.cwd(), ".env"), override: false });
+```
+
+<Note>
+The `override: false` option means environment variables already set in `process.env` take precedence over the `.env` file.
+</Note>
+
+### Docker Deployment
+
+Pass environment variables when running the container:
+
+<CodeGroup>
+
+```bash docker run
+docker run -p 3000:3000 \
+  -e MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net/?retryWrites=true&w=majority" \
+  -e MONGODB_DB="portafolio" \
+  -e MONGODB_COLLECTION_NFQ="nfq" \
+  portfolio-javier-navas
+```
+
+```bash docker-compose
+# docker-compose.yml
+version: '3.8'
+services:
+  app:
+    image: portfolio-javier-navas
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/?retryWrites=true&w=majority
+      - MONGODB_DB=portafolio
+      - MONGODB_COLLECTION_NFQ=nfq
+```
+
+```bash .env file
+# Use .env file with docker-compose
+services:
+  app:
+    image: portfolio-javier-navas
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+```
+
+</CodeGroup>
+
+### Cloud Platforms
+
+Each cloud platform has its own method for setting environment variables:
+
+<CodeGroup>
+
+```bash AWS ECS
+# Task Definition JSON
+{
+  "containerDefinitions": [{
+    "environment": [
+      {
+        "name": "MONGODB_URI",
+        "value": "mongodb+srv://user:pass@cluster.mongodb.net"
+      },
+      {
+        "name": "MONGODB_DB",
+        "value": "portafolio"
+      },
+      {
+        "name": "MONGODB_COLLECTION_NFQ",
+        "value": "nfq"
+      }
+    ]
+  }]
+}
+```
+
+```bash Google Cloud Run
+gcloud run deploy portfolio-javier-navas \
+  --image gcr.io/project/portfolio-javier-navas \
+  --set-env-vars="MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net,MONGODB_DB=portafolio,MONGODB_COLLECTION_NFQ=nfq"
+```
+
+```bash Azure Container Apps
+az containerapp create \
+  --name portfolio-javier-navas \
+  --resource-group myResourceGroup \
+  --image registry.azurecr.io/portfolio-javier-navas:latest \
+  --environment-variables \
+    "MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net" \
+    "MONGODB_DB=portafolio" \
+    "MONGODB_COLLECTION_NFQ=nfq"
+```
+
+```bash Fly.io
+# fly.toml
+[env]
+  MONGODB_DB = "portafolio"
+  MONGODB_COLLECTION_NFQ = "nfq"
+
+# Set secrets separately
+fly secrets set MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net"
+```
+
+```bash Railway
+# Set in Railway dashboard or CLI
+railway variables set MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net"
+railway variables set MONGODB_DB="portafolio"
+railway variables set MONGODB_COLLECTION_NFQ="nfq"
+```
+
+```bash Vercel
+# Set in Vercel dashboard or CLI
+vercel env add MONGODB_URI
+vercel env add MONGODB_DB
+vercel env add MONGODB_COLLECTION_NFQ
+```
+
+</CodeGroup>
+
+## Security Best Practices
+
+<Warning>
+Never commit `.env` files or environment variables containing secrets to version control.
+</Warning>
+
+### Protecting Credentials
+
+1. **Add to .gitignore**
+```bash
+# .gitignore
+.env
+.env.local
+.env.*.local
+```
+
+2. **Use secrets management** for production:
+   - AWS Secrets Manager
+   - Google Secret Manager
+   - Azure Key Vault
+   - HashiCorp Vault
+
+3. **URL-encode special characters** in connection strings:
+```bash
+# If password is p@ssw0rd!
+# Encode as: p%40ssw0rd%21
+MONGODB_URI=mongodb+srv://user:p%40ssw0rd%21@cluster.mongodb.net
+```
+
+4. **Rotate credentials regularly** and update environment variables
+
+5. **Use read-only credentials** when the application doesn't need write access
+
+### Environment-Specific Variables
+
+Maintain separate configurations for each environment:
+
+```bash
+# .env.development
+MONGODB_URI=mongodb://localhost:27017
+MONGODB_DB=portafolio_dev
+
+# .env.staging
+MONGODB_URI=mongodb+srv://staging:pass@cluster-staging.mongodb.net
+MONGODB_DB=portafolio_staging
+
+# .env.production
+MONGODB_URI=mongodb+srv://prod:pass@cluster-prod.mongodb.net
+MONGODB_DB=portafolio
+```
+
+## Validation
+
+The application validates that `MONGODB_URI` is set at runtime:
+
+```typescript
+const uri = process.env.MONGODB_URI;
+if (!uri) throw new Error("MONGODB_URI no está definida en .env");
+```
+
+If the variable is missing, the application will crash on startup with a clear error message.
+
+## Example .env File
+
+Here's a complete example `.env` file:
+
+```bash
+# MongoDB Configuration
+MONGODB_URI=mongodb+srv://portfolio_user:MySecurePassword123@cluster0.abc123.mongodb.net/?retryWrites=true&w=majority
+MONGODB_DB=portafolio
+MONGODB_COLLECTION_NFQ=nfq
+
+# Optional: Node environment
+NODE_ENV=production
+```
+
+## Troubleshooting
+
+### Variable Not Loading
+
+1. Verify `.env` file is in the project root
+2. Check file has no syntax errors (no spaces around `=`)
+3. Restart the development server after changes
+4. Ensure the file is not named `.env.txt` or similar
+
+### Connection String Issues
+
+1. **Special characters**: URL-encode special characters in passwords
+2. **Whitespace**: Remove any trailing spaces from values
+3. **Quotes**: Don't use quotes around values in `.env` files
+
+```bash
+# Correct
+MONGODB_URI=mongodb://localhost:27017
+
+# Incorrect
+MONGODB_URI="mongodb://localhost:27017"
+MONGODB_URI = mongodb://localhost:27017
+```
+
+### Production vs Development
+
+If variables work locally but not in production:
+
+1. Verify environment variables are set in your deployment platform
+2. Check that the platform restarts the application after setting variables
+3. Review platform-specific logs for configuration errors
+4. Ensure secrets are not masked or truncated
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="MongoDB Setup" icon="database" href="/deployment/mongodb-setup">
+    Configure MongoDB database and collections
+  </Card>
+  <Card title="Docker Deployment" icon="docker" href="/deployment/docker">
+    Deploy using Docker containers
+  </Card>
+</CardGroup>

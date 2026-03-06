@@ -1,0 +1,823 @@
+---
+title: Terminal Commands
+description: Complete guide to the terminal command system, execution flow, and tab completion
+---
+
+The Terminal component (`app/components/Terminal.tsx`) provides an interactive command-line interface for navigating Javier's portfolio. It supports file system navigation, document reading, and special commands.
+
+## Architecture Overview
+
+### Line Types
+
+Terminal output is composed of typed line objects:
+
+```typescript
+type Line =
+  | { id: number; type: "ascii" }        // ASCII art banner
+  | { id: number; type: "blank" }        // Empty line for spacing
+  | { id: number; type: "command"; prompt: string; cmd: string }  // User command
+  | { id: number; type: "text"; text: string; color?: Color }     // Plain text output
+  | { id: number; type: "link"; label: string; url: string };     // Clickable link
+
+type Color = "green" | "cyan" | "yellow" | "red" | "white" | "gray";
+```
+
+### State Management
+
+```typescript
+const [lines, setLines] = useState<Line[]>(BOOT);  // Output history
+const [input, setInput] = useState("");             // Current input
+const [path, setPath] = useState("~");              // Current directory
+const [cmdHistory, setCmdHistory] = useState<string[]>([]);  // Command history
+const [historyIdx, setHistoryIdx] = useState(-1);   // History navigation index
+```
+
+### Boot Sequence
+
+```typescript
+const BOOT: Line[] = [
+  { id: nextId(), type: "ascii" },
+  { id: nextId(), type: "blank" },
+  { id: nextId(), type: "text", text: "Bienvenido al portfolio de Javier Navas.  (v1.0.0)", color: "white" },
+  { id: nextId(), type: "text", text: SEP, color: "gray" },
+  { id: nextId(), type: "text", text: "Escribe `help` para ver los comandos disponibles.", color: "gray" },
+  { id: nextId(), type: "blank" },
+];
+```
+
+Displayed on component mount and after `clear` command.
+
+## Command Execution Flow
+
+```typescript
+function execute(raw: string) {
+  const cmd = raw.trim();
+  if (!cmd) return;
+
+  // 1. Echo command to output
+  push({ type: "command", prompt: promptStr, cmd });
+  
+  // 2. Add to history
+  setCmdHistory((h) => [cmd, ...h]);
+  setHistoryIdx(-1);
+
+  // 3. Parse command and arguments
+  const [command, ...rest] = cmd.split(/\s+/);
+  const arg = rest.join(" ");
+
+  // 4. Execute command
+  switch (command.toLowerCase()) {
+    case "help":       cmdHelp();              break;
+    case "whoami":     cmdWhoami();            break;
+    case "about":      cmdAbout();             break;
+    case "dir":
+    case "ls":         cmdDir();               break;
+    case "cat":        cmdCat(arg);            break;
+    case "open":       cmdOpen(arg);           break;
+    case "cd":         cmdCd(arg);             break;
+    case "ping":       cmdPing(arg);           break;
+    case "git":
+      arg === "init"
+        ? cmdGitInit()
+        : push({ type: "text", text: `git: '${arg}' no reconocido`, color: "red" }, { type: "blank" });
+      break;
+    case "clear":      setLines([...BOOT]);    break;
+    case "bot_javier": cmdBot();               break;
+    default:
+      push(
+        { type: "text", text: `bash: ${command}: comando no encontrado`, color: "red" },
+        { type: "text", text: "Escribe \`help\` para ver los comandos disponibles.", color: "gray" },
+        { type: "blank" }
+      );
+  }
+}
+```
+
+### Push Helper Function
+
+```typescript
+function push(...newLines: LineInput[]) {
+  setLines((prev) => [
+    ...prev,
+    ...newLines.map((l) => ({ ...l, id: nextId() } as Line)),
+  ]);
+}
+```
+
+Adds new lines to output with auto-generated IDs.
+
+## File System Structure
+
+### Virtual Path Hierarchy
+
+```
+~
+├── proyectos/
+│   ├── Arcadiax.txt
+│   ├── Automatizacion_Francia.txt
+│   ├── Pipeline_PositionHoldings.txt
+│   └── Incorporacion a NFQ - New Joiner.txt
+├── estudios/
+│   ├── grado-informatica.txt
+│   └── DAM.txt
+└── trabajos/
+    ├── Everis.txt
+    ├── Inetum.txt
+    └── NFQ.txt
+```
+
+### Path Validation
+
+```typescript
+function isValidPath(p: string) {
+  const { proyectos, estudios, trabajos } = textos.terminal;
+  const valid = new Set([
+    "~",
+    "~/proyectos",
+    "~/estudios",
+    "~/trabajos",
+    ...proyectos.map((x) => `~/proyectos/${x.slug}`),
+    ...estudios.map((x) => `~/estudios/${x.slug}`),
+    ...trabajos.map((x) => `~/trabajos/${x.slug}`),
+  ]);
+  return valid.has(p);
+}
+```
+
+## Available Commands
+
+### Navigation Commands
+
+<Accordion title="ls / dir - List directory contents">
+```typescript
+function cmdDir() {
+  const { proyectos, estudios, trabajos } = textos.terminal;
+
+  if (path === "~") {
+    push(
+      { type: "blank" },
+      { type: "text", text: "  proyectos/    estudios/    trabajos/", color: "cyan" },
+      { type: "blank" }
+    );
+    return;
+  }
+
+  if (path === "~/proyectos") {
+    push(
+      { type: "blank" },
+      { type: "text", text: "  " + proyectos.map((p) => p.slug + ".txt").join("    "), color: "white" },
+      { type: "blank" }
+    );
+    return;
+  }
+
+  // ... similar for estudios, trabajos, and individual files
+}
+```
+
+**Usage:**
+```bash
+visitor@javier.dev:~$ ls
+  proyectos/    estudios/    trabajos/
+
+visitor@javier.dev:~$ cd proyectos
+visitor@javier.dev:~/proyectos$ ls
+  Arcadiax.txt    Automatizacion_Francia.txt    Pipeline_PositionHoldings.txt
+```
+
+**Behavior:**
+- Lists folders when in home directory
+- Lists files when in a category directory
+- Shows full details when inside a file "directory"
+</Accordion>
+
+<Accordion title="cd - Change directory">
+```typescript
+function cmdCd(target: string) {
+  if (!target || target === "~") {
+    setPath("~");
+    push({ type: "blank" });
+    return;
+  }
+
+  if (target === "..") {
+    if (path === "~") {
+      push({ type: "text", text: "bash: ya estás en el directorio raíz", color: "yellow" }, { type: "blank" });
+      return;
+    }
+    const segments = path.split("/");
+    segments.pop();
+    setPath(segments.join("/") || "~");
+    push({ type: "blank" });
+    return;
+  }
+
+  const newPath = path === "~" ? `~/${target}` : `${path}/${target}`;
+
+  if (isValidPath(newPath)) {
+    setPath(newPath);
+    push({ type: "blank" });
+  } else {
+    push(
+      { type: "text", text: `bash: cd: ${target}: No existe el directorio`, color: "red" },
+      { type: "blank" }
+    );
+  }
+}
+```
+
+**Usage:**
+```bash
+visitor@javier.dev:~$ cd proyectos
+visitor@javier.dev:~/proyectos$ cd Arcadiax
+visitor@javier.dev:~/proyectos/Arcadiax$ cd ..
+visitor@javier.dev:~/proyectos$ cd ~
+visitor@javier.dev:~$
+```
+
+**Features:**
+- `cd` or `cd ~` returns to home
+- `cd ..` goes up one level
+- `cd <folder>` enters a folder (with validation)
+- Shows error for invalid paths
+</Accordion>
+
+### File Reading Commands
+
+<Accordion title="cat - Read file contents">
+```typescript
+function cmdCat(target: string) {
+  if (!target) {
+    push({ type: "text", text: "uso: cat <archivo.txt>", color: "yellow" }, { type: "blank" });
+    return;
+  }
+
+  const slug = target.endsWith(".txt") ? target.slice(0, -4) : target;
+  const { proyectos, estudios, trabajos } = textos.terminal;
+
+  if (path === "~/proyectos") {
+    const p = proyectos.find((x) => x.slug === slug);
+    if (p) {
+      push(
+        { type: "blank" },
+        { type: "text", text: `  ${p.name}`, color: "yellow" },
+        { type: "text", text: SEP, color: "gray" },
+        { type: "text", text: `  Descripción: ${p.description}`, color: "white" },
+        { type: "text", text: `  Tech:        ${p.tech.join(" · ")}", color: "cyan" },
+        ...(p.url ? [{ type: "link" as const, label: `  URL:         ${p.url}`, url: p.url }] : []),
+        { type: "blank" }
+      );
+      return;
+    }
+  }
+
+  // ... similar for trabajos and estudios
+
+  push(
+    { type: "text", text: `cat: ${target}: No existe el archivo`, color: "red" },
+    { type: "text", text: "Usa \`ls\` para ver los archivos disponibles.", color: "gray" },
+    { type: "blank" }
+  );
+}
+```
+
+**Usage:**
+```bash
+visitor@javier.dev:~/proyectos$ cat Arcadiax.txt
+
+  Arcadiax
+  ─────────────────────────────────────────────────
+  Descripción: ArcadiaX es un ecosistema tecnológico personal...
+  Tech:        React · TypeScript · Node.js
+  URL:         https://proyecto1.com
+```
+
+**Features:**
+- Accepts filename with or without `.txt` extension
+- Context-aware: only searches files in current directory
+- Shows project/work/study details based on location
+- Displays clickable URLs for projects
+</Accordion>
+
+<Accordion title="open - Open/download files">
+```typescript
+function cmdOpen(target: string) {
+  if (!target) {
+    push({ type: "text", text: "uso: open <archivo>", color: "yellow" }, { type: "blank" });
+    return;
+  }
+
+  if (target === "cv.pdf") {
+    push(
+      { type: "blank" },
+      { type: "text", text: "  Abriendo cv.pdf...", color: "green" },
+      { type: "link", label: "  → /cv.pdf", url: "/cv.pdf" },
+      { type: "blank" }
+    );
+    window.open("/cv.pdf", "_blank");
+    return;
+  }
+
+  push(
+    { type: "text", text: `open: ${target}: No existe el archivo`, color: "red" },
+    { type: "blank" }
+  );
+}
+```
+
+**Usage:**
+```bash
+visitor@javier.dev:~$ open cv.pdf
+
+  Abriendo cv.pdf...
+  → /cv.pdf
+```
+
+Opens CV in new browser tab.
+</Accordion>
+
+### Information Commands
+
+<Accordion title="help - Show available commands">
+```typescript
+function cmdHelp() {
+  push(
+    { type: "blank" },
+    { type: "text", text: "Comandos disponibles:", color: "cyan" },
+    { type: "text", text: SEP, color: "gray" },
+    { type: "text", text: "  about               → Sobre mí", color: "white" },
+    { type: "text", text: "  whoami              → Quién soy", color: "white" },
+    { type: "text", text: "  ls / dir            → Listar directorio actual", color: "white" },
+    { type: "text", text: "  cd <carpeta>        → Entrar en una carpeta", color: "white" },
+    { type: "text", text: "  cd ..               → Volver atrás", color: "white" },
+    { type: "text", text: "  cat <archivo.txt>   → Leer un archivo", color: "white" },
+    { type: "text", text: "  open cv.pdf         → Abrir / descargar el CV", color: "white" },
+    { type: "text", text: "  ping <proyecto>     → Info + URL de un proyecto", color: "white" },
+    { type: "text", text: "  git init            → Mi cuenta de GitHub", color: "white" },
+    { type: "text", text: "  clear               → Limpiar terminal", color: "white" },
+    { type: "text", text: "  bot_javier          → Chatbot IA sobre mí  ✦", color: "cyan" },
+    { type: "blank" }
+  );
+}
+```
+
+**Usage:**
+```bash
+visitor@javier.dev:~$ help
+
+Comandos disponibles:
+─────────────────────────────────────────────────
+  about               → Sobre mí
+  whoami              → Quién soy
+  ls / dir            → Listar directorio actual
+  ...
+```
+</Accordion>
+
+<Accordion title="whoami - Display user identity">
+```typescript
+function cmdWhoami() {
+  push(
+    { type: "blank" },
+    { type: "text", text: "Javier Navas · Ingeniero Informático · Desarrollador Full Stack", color: "green" },
+    { type: "blank" }
+  );
+}
+```
+
+**Output:**
+```bash
+visitor@javier.dev:~$ whoami
+
+Javier Navas · Ingeniero Informático · Desarrollador Full Stack
+```
+</Accordion>
+
+<Accordion title="about - Extended bio">
+```typescript
+function cmdAbout() {
+  const lines = textos.terminal.about;
+  push(
+    { type: "blank" },
+    ...lines.map((text) => ({ type: "text" as const, text, color: "white" as const })),
+    { type: "blank" }
+  );
+}
+```
+
+Reads from `textos.ts`:
+
+```typescript
+about: [
+  "Hola, soy Javier Navas.",
+  "Ingeniero Informático apasionado por construir productos digitales con buen código y mejor diseño.",
+  "Me especializo en desarrollo Full Stack, con foco en el frontend y experiencia de usuario.",
+  "Siempre buscando nuevos retos que combinen tecnología y creatividad.",
+]
+```
+</Accordion>
+
+### Special Commands
+
+<Accordion title="ping - Quick project lookup">
+```typescript
+function cmdPing(target: string) {
+  if (!target) {
+    push(
+      { type: "text", text: "uso: ping <slug-proyecto>", color: "yellow" },
+      { type: "blank" }
+    );
+    return;
+  }
+
+  const p = textos.terminal.proyectos.find((x) => x.slug === target);
+  if (!p) {
+    push(
+      { type: "text", text: `ping: '${target}': proyecto no encontrado`, color: "red" },
+      { type: "text", text: "Usa \`cd proyectos\` y luego \`dir\` para ver los disponibles.", color: "gray" },
+      { type: "blank" }
+    );
+    return;
+  }
+
+  push(
+    { type: "blank" },
+    { type: "text", text: "PONG!", color: "green" },
+    { type: "text", text: SEP, color: "gray" },
+    { type: "text", text: `  Nombre:      ${p.name}`, color: "yellow" },
+    { type: "text", text: `  Descripción: ${p.description}`, color: "white" },
+    { type: "text", text: `  Tech:        ${p.tech.join(" · ")}", color: "red" },
+    { type: "link", label: `  URL:         ${p.url}`, url: p.url },
+    { type: "blank" }
+  );
+}
+```
+
+**Usage:**
+```bash
+visitor@javier.dev:~$ ping Arcadiax
+
+PONG!
+─────────────────────────────────────────────────
+  Nombre:      Arcadiax
+  Descripción: ArcadiaX es un ecosistema tecnológico personal...
+  Tech:        React · TypeScript · Node.js
+  URL:         https://proyecto1.com
+```
+
+**Key feature:** Works from any directory (doesn't require `cd proyectos`)
+</Accordion>
+
+<Accordion title="git init - GitHub profile">
+```typescript
+function cmdGitInit() {
+  push(
+    { type: "blank" },
+    { type: "text", text: "Initialized empty Javier Navas repository in /", color: "green" },
+    { type: "text", text: SEP, color: "gray" },
+    { type: "text", text: "  remote: github.com/navas98", color: "white" },
+    { type: "link", label: "  → https://github.com/navas98", url: "https://github.com/navas98" },
+    { type: "blank" }
+  );
+}
+```
+
+**Usage:**
+```bash
+visitor@javier.dev:~$ git init
+
+Initialized empty Javier Navas repository in /
+─────────────────────────────────────────────────
+  remote: github.com/navas98
+  → https://github.com/navas98
+```
+</Accordion>
+
+<Accordion title="clear - Clear terminal output">
+```typescript
+case "clear": setLines([...BOOT]); break;
+```
+
+Resets terminal to boot state.
+</Accordion>
+
+<Accordion title="bot_javier - AI chatbot (coming soon)">
+```typescript
+function cmdBot() {
+  push(
+    { type: "blank" },
+    { type: "text", text: "Iniciando bot_javier...", color: "cyan" },
+    { type: "text", text: "⚠  Próximamente disponible.", color: "yellow" },
+    { type: "blank" }
+  );
+}
+```
+
+Placeholder for future AI assistant feature.
+</Accordion>
+
+## Tab Completion System
+
+### Completion Logic
+
+```typescript
+const COMMANDS = ["about", "bot_javier", "cat", "cd", "clear", "dir", "git init", "help", "ls", "open", "ping", "whoami"];
+
+function getCompletions(raw: string): string[] {
+  const parts = raw.split(/\s+/);
+
+  // Completing a command name
+  if (parts.length === 1) {
+    const partial = parts[0].toLowerCase();
+    return COMMANDS.filter((c) => c.startsWith(partial));
+  }
+
+  const command = parts[0].toLowerCase();
+  const partial = parts[1] ?? "";
+
+  if (command === "cd") {
+    const candidates = [...getSubdirs(path), ".."];
+    return candidates.filter((d) => d.startsWith(partial));
+  }
+
+  if (command === "open") {
+    return ["cv.pdf"].filter((f) => f.startsWith(partial));
+  }
+
+  if (command === "cat") {
+    const { proyectos, estudios, trabajos } = textos.terminal;
+    let files: string[] = [];
+    if (path === "~/proyectos")  files = proyectos.map((p) => p.slug + ".txt");
+    if (path === "~/trabajos")   files = trabajos.map((t) => t.slug + ".txt");
+    if (path === "~/estudios")   files = estudios.map((e) => e.slug + ".txt");
+    return files.filter((f) => f.startsWith(partial));
+  }
+
+  if (command === "ping") {
+    return textos.terminal.proyectos
+      .map((p) => p.slug)
+      .filter((s) => s.startsWith(partial));
+  }
+
+  return [];
+}
+```
+
+### Tab Behavior
+
+```typescript
+function handleTab(e: React.KeyboardEvent<HTMLInputElement>) {
+  e.preventDefault();
+  if (!input.trim()) return;
+
+  const completions = getCompletions(input);
+  if (completions.length === 0) return;
+
+  if (completions.length === 1) {
+    // Single match → complete it
+    const parts = input.split(/\s+/);
+    if (parts.length === 1) {
+      setInput(completions[0] + " ");
+    } else {
+      parts[parts.length - 1] = completions[0];
+      setInput(parts.join(" ") + " ");
+    }
+    return;
+  }
+
+  // Multiple matches → echo command + show options
+  push(
+    { type: "command", prompt: promptStr, cmd: input },
+    { type: "text", text: completions.join("    "), color: "cyan" },
+    { type: "blank" }
+  );
+}
+```
+
+**Behavior:**
+- Single match: Auto-completes and adds space
+- Multiple matches: Shows all options (like bash)
+- Context-aware: Only suggests valid options for current path
+
+### Example Usage
+
+<Tabs>
+  <Tab title="Command Completion">
+```bash
+visitor@javier.dev:~$ he[TAB]
+visitor@javier.dev:~$ help
+
+visitor@javier.dev:~$ c[TAB]
+visitor@javier.dev:~$ c
+cat    cd    clear
+```
+  </Tab>
+  <Tab title="Argument Completion">
+```bash
+visitor@javier.dev:~$ cd pro[TAB]
+visitor@javier.dev:~$ cd proyectos
+
+visitor@javier.dev:~/proyectos$ cat Arc[TAB]
+visitor@javier.dev:~/proyectos$ cat Arcadiax.txt
+```
+  </Tab>
+  <Tab title="Multiple Matches">
+```bash
+visitor@javier.dev:~$ cd [TAB]
+visitor@javier.dev:~$ cd
+proyectos    estudios    trabajos    ..
+```
+  </Tab>
+</Tabs>
+
+## Command History
+
+### Arrow Key Navigation
+
+```typescript
+function handleKey(e: KeyboardEvent<HTMLInputElement>) {
+  if (e.key === "Tab") {
+    handleTab(e);
+  } else if (e.key === "Enter") {
+    execute(input);
+    setInput("");
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    const idx = Math.min(historyIdx + 1, cmdHistory.length - 1);
+    setHistoryIdx(idx);
+    if (cmdHistory[idx] !== undefined) setInput(cmdHistory[idx]);
+  } else if (e.key === "ArrowDown") {
+    e.preventDefault();
+    const idx = Math.max(historyIdx - 1, -1);
+    setHistoryIdx(idx);
+    setInput(idx === -1 ? "" : (cmdHistory[idx] ?? ""));
+  }
+}
+```
+
+**Behavior:**
+- `↑`: Navigate back through history (older commands)
+- `↓`: Navigate forward through history (newer commands)
+- At end of history: Clears input
+- History persists during session (lost on page refresh)
+
+### History Storage
+
+```typescript
+const [cmdHistory, setCmdHistory] = useState<string[]>([]);
+
+// In execute():
+setCmdHistory((h) => [cmd, ...h]);
+setHistoryIdx(-1);
+```
+
+- New commands prepended to array
+- Index -1 = current input (not in history)
+- No persistence between sessions
+
+## Line Rendering
+
+```typescript
+const COLOR_MAP: Record<string, string> = {
+  green:  "text-green-400",
+  cyan:   "text-cyan-400",
+  yellow: "text-yellow-400",
+  red:    "text-red-400",
+  white:  "text-gray-100",
+  gray:   "text-gray-500",
+};
+
+function RenderLine({ line }: { line: Line }) {
+  if (line.type === "blank") {
+    return <div className="h-2" />;
+  }
+
+  if (line.type === "ascii") {
+    return (
+      <pre
+        className="text-cyan-400 leading-tight overflow-x-auto mb-1 select-none"
+        style={{ fontSize: "clamp(5px, 2vw, 12px)" }}
+      >
+        {ASCII}
+      </pre>
+    );
+  }
+
+  if (line.type === "command") {
+    return (
+      <div className="flex gap-2">
+        <span className="text-green-400 shrink-0 select-none">{line.prompt}</span>
+        <span className="text-gray-100"> {line.cmd}</span>
+      </div>
+    );
+  }
+
+  if (line.type === "link") {
+    return (
+      <a
+        href={line.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block text-cyan-400 underline underline-offset-2 hover:text-cyan-300 transition-colors"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {line.label}
+      </a>
+    );
+  }
+
+  // text
+  const cls = line.color ? COLOR_MAP[line.color] : "text-gray-300";
+  return <div className={cls}>{line.text}</div>;
+}
+```
+
+## Adding New Commands
+
+### Step 1: Define Command Function
+
+```typescript
+function cmdMyCommand(arg: string) {
+  if (!arg) {
+    push(
+      { type: "text", text: "uso: mycommand <argumento>", color: "yellow" },
+      { type: "blank" }
+    );
+    return;
+  }
+
+  // Command logic
+  push(
+    { type: "blank" },
+    { type: "text", text: `Resultado: ${arg}`, color: "green" },
+    { type: "blank" }
+  );
+}
+```
+
+### Step 2: Add to Switch Statement
+
+```typescript
+switch (command.toLowerCase()) {
+  // ... existing commands
+  case "mycommand": cmdMyCommand(arg); break;
+  // ...
+}
+```
+
+### Step 3: Add to Tab Completion
+
+```typescript
+const COMMANDS = [
+  "about", "bot_javier", "cat", "cd", "clear", "dir", 
+  "git init", "help", "ls", "mycommand", "open", "ping", "whoami"
+];
+```
+
+### Step 4: Add to Help Command
+
+```typescript
+function cmdHelp() {
+  push(
+    // ... existing help lines
+    { type: "text", text: "  mycommand <arg>     → My custom command", color: "white" },
+    // ...
+  );
+}
+```
+
+## Best Practices
+
+<Card title="Command Design" icon="terminal">
+- Use lowercase command names
+- Provide clear usage messages for missing arguments
+- Always add blank lines before/after output for readability
+- Use semantic colors (green for success, red for errors, cyan for info)
+</Card>
+
+<Card title="Error Handling" icon="exclamation-triangle">
+```typescript
+if (!arg) {
+  push(
+    { type: "text", text: "uso: command <arg>", color: "yellow" },
+    { type: "blank" }
+  );
+  return;
+}
+```
+
+Always validate arguments and show helpful error messages.
+</Card>
+
+<Card title="Output Formatting" icon="align-left">
+- Use `SEP` constant for visual separators
+- Indent content with `"  "` (2 spaces)
+- Use consistent color scheme across commands
+- Add blank lines for visual grouping
+</Card>
+
+## See Also
+
+- [Desktop System](/concepts/desktop-system) - Terminal window integration
+- [Components: Terminal](/components/desktop/terminal) - Full component API
+- [Data: textos.ts](/data/textos) - Content source

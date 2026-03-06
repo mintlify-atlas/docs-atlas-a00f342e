@@ -1,0 +1,248 @@
+---
+title: MongoDB Setup
+description: Configure MongoDB connection for the Portfolio Javier Navas application
+---
+
+The application uses MongoDB to store and retrieve NFQ (No Failure Questions) events displayed in the timeline.
+
+## MongoDB Connection
+
+The application connects to MongoDB using the official `mongodb` driver with connection caching for optimal performance.
+
+### Connection Module
+
+Location: `app/lib/mongodb.server.ts`
+
+```typescript
+import { MongoClient } from "mongodb";
+import * as dotenv from "dotenv";
+import { resolve } from "path";
+
+dotenv.config({ path: resolve(process.cwd(), ".env"), override: false });
+
+let cachedClient: MongoClient | null = null;
+
+async function getClient(): Promise<MongoClient> {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) throw new Error("MONGODB_URI no está definida en .env");
+  if (cachedClient) {
+    try {
+      await cachedClient.db("admin").command({ ping: 1 });
+      return cachedClient;
+    } catch {
+      cachedClient = null;
+    }
+  }
+  cachedClient = new MongoClient(uri, { serverSelectionTimeoutMS: 10000 });
+  await cachedClient.connect();
+  return cachedClient;
+}
+```
+
+### Connection Caching
+
+The module implements connection caching to reuse the MongoDB client across requests:
+
+1. **First Request**: Creates a new MongoClient and caches it
+2. **Subsequent Requests**: Reuses the cached client after verifying it's still alive with a ping
+3. **Connection Failure**: Automatically reconnects if the cached connection is dead
+
+This approach is essential for serverless environments and reduces connection overhead.
+
+## Database Structure
+
+### Environment Variables
+
+The application uses these environment variables for MongoDB configuration:
+
+- `MONGODB_URI` - Connection string (required)
+- `MONGODB_DB` - Database name (default: `portafolio`)
+- `MONGODB_COLLECTION_NFQ` - Collection name (default: `nfq`)
+
+### NFQ Events Collection
+
+The `getNfqEvents()` function retrieves NFQ events from MongoDB:
+
+```typescript
+export async function getNfqEvents(): Promise<NfqEventRaw[]> {
+  const client = await getClient();
+  const db = process.env.MONGODB_DB ?? "portafolio";
+  const col = process.env.MONGODB_COLLECTION_NFQ ?? "nfq";
+  const docs = await client
+    .db(db)
+    .collection(col)
+    .find({})
+    .sort({ fecha: 1 })
+    .toArray();
+
+  return docs.map((doc) => ({
+    id: doc._id.toString(),
+    title: doc.titulo as string,
+    category: "nfq" as const,
+    problema: doc.problema as string,
+    solucion: doc.solucion as string,
+    aprendizaje: doc.aprendizaje as string,
+    start: new Date(doc.fecha as string | Date).toISOString(),
+    color: "#c084fc",
+  }));
+}
+```
+
+### Document Schema
+
+Each NFQ event document in MongoDB should have this structure:
+
+```json
+{
+  "_id": ObjectId("..."),
+  "titulo": "Event Title",
+  "problema": "Description of the problem encountered",
+  "solucion": "Solution that was applied",
+  "aprendizaje": "Key learning from this experience",
+  "fecha": ISODate("2024-01-15T00:00:00.000Z")
+}
+```
+
+### TypeScript Interface
+
+The application defines this interface for NFQ events:
+
+```typescript
+export interface NfqEventRaw {
+  id: string;
+  title: string;
+  category: "nfq";
+  problema: string;
+  solucion: string;
+  aprendizaje: string;
+  start: string; // ISO string
+  color: string;
+}
+```
+
+## Local Development Setup
+
+<Steps>
+
+<Step title="Create MongoDB database">
+You can use either MongoDB Atlas (cloud) or a local MongoDB instance.
+
+**MongoDB Atlas:**
+1. Create a free account at [mongodb.com/cloud/atlas](https://www.mongodb.com/cloud/atlas)
+2. Create a new cluster
+3. Get your connection string
+
+**Local MongoDB:**
+```bash
+# Using Docker
+docker run -d -p 27017:27017 --name mongodb mongo:latest
+
+# Connection string will be:
+# mongodb://localhost:27017
+```
+</Step>
+
+<Step title="Create database and collection">
+Using MongoDB Compass or mongosh:
+
+```javascript
+use portafolio
+
+db.createCollection("nfq")
+```
+</Step>
+
+<Step title="Insert sample data">
+Add sample NFQ events:
+
+```javascript
+db.nfq.insertMany([
+  {
+    titulo: "First NFQ Event",
+    problema: "Problem description",
+    solucion: "Solution applied",
+    aprendizaje: "Key takeaway",
+    fecha: new Date("2024-01-15")
+  },
+  {
+    titulo: "Second NFQ Event",
+    problema: "Another problem",
+    solucion: "Another solution",
+    aprendizaje: "Another learning",
+    fecha: new Date("2024-02-01")
+  }
+])
+```
+</Step>
+
+<Step title="Configure environment variables">
+Create a `.env` file in the project root:
+
+```bash
+MONGODB_URI=mongodb+srv://user:password@cluster.mongodb.net/?retryWrites=true&w=majority
+MONGODB_DB=portafolio
+MONGODB_COLLECTION_NFQ=nfq
+```
+
+See [Environment Variables](/deployment/environment-variables) for details.
+</Step>
+
+</Steps>
+
+## Production Setup
+
+<Warning>
+Always use connection string authentication in production. Never expose your MongoDB instance directly to the internet without authentication.
+</Warning>
+
+### MongoDB Atlas Configuration
+
+1. **Network Access**: Add your deployment platform's IP addresses to the IP allowlist
+2. **Database User**: Create a dedicated user with read/write permissions
+3. **Connection String**: Use the SRV connection string format
+
+```
+mongodb+srv://<username>:<password>@<cluster>.mongodb.net/?retryWrites=true&w=majority
+```
+
+### Security Best Practices
+
+- Use environment variables for credentials (never hardcode)
+- Rotate database passwords regularly
+- Use read-only users for applications that only need to read data
+- Enable MongoDB Atlas audit logs
+- Set up connection limits appropriate for your tier
+- Use VPC peering for enhanced security (if available)
+
+## Troubleshooting
+
+### Connection Timeout
+
+If you see `serverSelectionTimeoutMS` errors:
+
+1. Check that your IP is allowlisted in MongoDB Atlas
+2. Verify the connection string is correct
+3. Ensure network access from your deployment environment
+
+### Authentication Failed
+
+1. Verify username and password in `MONGODB_URI`
+2. Check that the database user has proper permissions
+3. Ensure special characters in password are URL-encoded
+
+### Empty Results
+
+1. Verify database name matches `MONGODB_DB`
+2. Check collection name matches `MONGODB_COLLECTION_NFQ`
+3. Confirm documents exist in the collection
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="key" href="/deployment/environment-variables">
+    Configure all required environment variables
+  </Card>
+  <Card title="Docker Deployment" icon="docker" href="/deployment/docker">
+    Deploy using Docker containers
+  </Card>
+</CardGroup>

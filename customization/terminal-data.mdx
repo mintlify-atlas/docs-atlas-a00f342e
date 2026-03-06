@@ -1,0 +1,377 @@
+---
+title: Terminal Data
+description: Understand terminal content structure, slug-based navigation, and data requirements
+icon: terminal
+---
+
+## Overview
+
+The terminal component is a core feature of the portfolio. It allows visitors to navigate your content using Unix-like commands. All terminal data is defined in `app/textos.ts` under the `terminal` key.
+
+<Info>
+The terminal uses **slug-based navigation**. Each project, job, and degree must have a unique slug for the `show` command to work.
+</Info>
+
+## Terminal Structure
+
+The terminal object contains:
+
+```typescript app/textos.ts
+terminal: {
+  prompt: "visitor@javier.dev",
+  about: [...],           // About section (array of strings)
+  proyectos: [...],       // Projects array
+  trabajos: [...],        // Work experience array
+  estudios: [...],        // Education array
+}
+```
+
+## Terminal Commands
+
+Visitors can use these commands in the terminal:
+
+| Command | Description | Example |
+|---------|-------------|----------|
+| `help` | Show available commands | `help` |
+| `about` | Display about information | `about` |
+| `clear` | Clear the terminal | `clear` |
+| `show proyectos` | List all projects | `show proyectos` |
+| `show proyectos/{slug}` | Show specific project | `show proyectos/Arcadiax` |
+| `show trabajos` | List all work experience | `show trabajos` |
+| `show trabajos/{slug}` | Show specific job | `show trabajos/NFQ` |
+| `show estudios` | List all education | `show estudios` |
+| `show estudios/{slug}` | Show specific degree | `show estudios/grado-informatica` |
+
+## Slug-Based Navigation
+
+### What is a Slug?
+
+A **slug** is a unique, URL-friendly identifier for each content item:
+- Used in terminal commands: `show proyectos/my-project-slug`
+- Must be unique within each category (proyectos, trabajos, estudios)
+- Should be lowercase and use hyphens instead of spaces
+
+### Slug Naming Guidelines
+
+<CardGroup cols={2}>
+  <Card title="✅ Good Slugs" icon="check">
+    - `arcadiax`
+    - `grado-informatica`
+    - `pipeline-positionholdings`
+    - `automatizacion-francia`
+  </Card>
+  
+  <Card title="❌ Bad Slugs" icon="xmark">
+    - `Arcadia X` (spaces)
+    - `Grado en Ingeniería` (spaces, accents)
+    - `Pipeline_PositionHoldings` (mixed case)
+    - `proyecto 1` (space + number)
+  </Card>
+</CardGroup>
+
+## Projects Data Structure
+
+### Interface
+
+```typescript
+interface Proyecto {
+  slug: string;        // Unique identifier
+  name: string;        // Display name
+  description: string; // Detailed description
+  tech: string[];      // Array of technologies
+  url: string;         // Project URL (can be empty)
+}
+```
+
+### Real Example
+
+```typescript app/textos.ts
+proyectos: [
+  {
+    slug: "Arcadiax",
+    name: "Arcadiax",
+    description: "ArcadiaX es un ecosistema tecnológico personal que integra sistemas distribuidos, inteligencia artificial y hardware conectado para crear una infraestructura doméstica unificada orientada al control, la automatización y la experiencia multimedia",
+    tech: ["React", "TypeScript", "Node.js"],
+    url: "https://proyecto1.com",
+  },
+  {
+    slug: "Automatizacion_Francia",
+    name: "Automatizacion Fichero Francia para NFQ",
+    description: "Desarrollo de un sistema para automatizar cálculos de NAV, control de FX y validaciones financieras mediante Excel + scripts de validación.",
+    tech: ["Python", "PostgreSQL", "Excel"],
+    url: "",
+  },
+]
+```
+
+### Adding a New Project
+
+<Steps>
+  <Step title="Choose a unique slug">
+    Decide on a slug that isn't used by other projects:
+    ```typescript
+    slug: "my-new-project"
+    ```
+  </Step>
+
+  <Step title="Add all required fields">
+    ```typescript
+    {
+      slug: "my-new-project",
+      name: "My New Project",
+      description: "A comprehensive description of what this project does and its impact.",
+      tech: ["Next.js", "Tailwind CSS", "Prisma"],
+      url: "https://github.com/username/my-new-project",
+    }
+    ```
+  </Step>
+
+  <Step title="Test the terminal command">
+    After saving, test in the terminal:
+    ```bash
+    show proyectos/my-new-project
+    ```
+  </Step>
+</Steps>
+
+## Work Experience Data Structure
+
+### Interface
+
+```typescript
+interface Trabajo {
+  slug: string;         // Unique identifier
+  empresa: string;      // Company name
+  rol: string;          // Your role
+  periodo: string;      // Time period
+  descripcion: string;  // Job description
+  proyectos?: string;   // Optional: related projects
+}
+```
+
+### Real Example
+
+```typescript app/textos.ts
+trabajos: [
+  {
+    slug: "Everis",
+    empresa: "Everis",
+    rol: "En practicas",
+    periodo: "Marzo 2018 - Junio 2018",
+    descripcion: "Mi responsabilidad consistía en desarrollar un proceso automatizado para gestionar la baja de las líneas móviles de Orange.",
+  },
+  {
+    slug: "NFQ",
+    empresa: "NFQ",
+    rol: "Consultor en banca",
+    periodo: "Octubre 2025 - Actual",
+    descripcion: "En NFQ Advisory Solutions trabajo en ingeniería de datos financiera, desarrollando y optimizando pipelines entre AWS y BigQuery. Automatizo procesos críticos, validaciones y migraciones de datos en entornos cloud.",
+    proyectos: "Proyectos: {Automatización Francia, Pipeline PositionHoldings}"
+  },
+]
+```
+
+### Adding a New Job
+
+<CodeGroup>
+```typescript Before
+trabajos: [
+  {
+    slug: "NFQ",
+    empresa: "NFQ",
+    rol: "Consultor en banca",
+    periodo: "Octubre 2025 - Actual",
+    descripcion: "En NFQ Advisory Solutions trabajo en ingeniería de datos financiera...",
+    proyectos: "Proyectos: {Automatización Francia, Pipeline PositionHoldings}"
+  },
+]
+```
+
+```typescript After
+trabajos: [
+  {
+    slug: "NFQ",
+    empresa: "NFQ",
+    rol: "Consultor en banca",
+    periodo: "Octubre 2025 - Actual",
+    descripcion: "En NFQ Advisory Solutions trabajo en ingeniería de datos financiera...",
+    proyectos: "Proyectos: {Automatización Francia, Pipeline PositionHoldings}"
+  },
+  {
+    slug: "my-company",
+    empresa: "My Company",
+    rol: "Senior Developer",
+    periodo: "Enero 2024 - Actual",
+    descripcion: "Leading development of cloud-native applications and mentoring junior developers.",
+    proyectos: "Proyectos: {Cloud Migration, API Gateway}"
+  },
+]
+```
+</CodeGroup>
+
+## Education Data Structure
+
+### Interface
+
+```typescript
+interface Estudio {
+  slug: string;      // Unique identifier
+  titulo: string;    // Degree title
+  centro: string;    // Institution and description
+  periodo: string;   // Time period
+}
+```
+
+### Real Example
+
+```typescript app/textos.ts
+estudios: [
+  {
+    slug: "grado-informatica",
+    titulo: "Grado en Ingeniería Informática",
+    centro: "En la universidad he adquirido una base sólida en arquitectura de computadores, sistemas operativos, redes y estructuras de datos, comprendiendo cómo funcionan los sistemas desde el hardware hasta el software. Además, he desarrollado capacidad para diseñar, implementar y analizar sistemas fiables y eficientes, aplicando principios de ingeniería en proyectos reales.",
+    periodo: "2018 – 2026",
+  },
+  {
+    slug: "DAM",
+    titulo: "Desarrollo de aplicaciones multiplataforma",
+    centro: "En el ciclo de Desarrollo de Aplicaciones Multiplataforma (DAM) adquirí experiencia en programación orientada a objetos, desarrollo de aplicaciones móviles y de escritorio, y diseño de bases de datos relacionales. Además, aprendí a estructurar proyectos completos siguiendo buenas prácticas, trabajando con APIs, entornos cliente-servidor y despliegues básicos en entornos reales.",
+    periodo: "2016 – 2018",
+  },
+]
+```
+
+### Adding a New Degree
+
+<Steps>
+  <Step title="Choose a slug">
+    Use a descriptive slug:
+    ```typescript
+    slug: "master-ai"
+    ```
+  </Step>
+
+  <Step title="Add all fields">
+    ```typescript
+    {
+      slug: "master-ai",
+      titulo: "Master in Artificial Intelligence",
+      centro: "Advanced studies in machine learning, deep learning, and neural networks. Completed thesis on natural language processing applications.",
+      periodo: "2023 – 2025",
+    }
+    ```
+  </Step>
+
+  <Step title="Verify navigation">
+    Test the command:
+    ```bash
+    show estudios/master-ai
+    ```
+  </Step>
+</Steps>
+
+## Data Validation Tips
+
+<AccordionGroup>
+  <Accordion title="Ensure unique slugs">
+    Each slug must be unique within its category. Duplicate slugs will cause navigation issues.
+    
+    ```typescript
+    // ❌ BAD: Duplicate slugs
+    proyectos: [
+      { slug: "project", name: "Project 1", ... },
+      { slug: "project", name: "Project 2", ... }, // Duplicate!
+    ]
+    
+    // ✅ GOOD: Unique slugs
+    proyectos: [
+      { slug: "project-1", name: "Project 1", ... },
+      { slug: "project-2", name: "Project 2", ... },
+    ]
+    ```
+  </Accordion>
+
+  <Accordion title="Check TypeScript types">
+    If using TypeScript, ensure all required fields are present. Missing fields will cause compilation errors.
+    
+    ```typescript
+    // ❌ BAD: Missing required fields
+    { slug: "project", name: "Project" } // Missing description, tech, url
+    
+    // ✅ GOOD: All fields present
+    {
+      slug: "project",
+      name: "Project",
+      description: "Description here",
+      tech: ["React"],
+      url: "",
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Validate date formats">
+    Use consistent date formatting across all entries:
+    
+    ```typescript
+    // Consistent format
+    periodo: "Marzo 2018 - Junio 2018"   // For completed periods
+    periodo: "Octubre 2025 - Actual"     // For current positions
+    periodo: "2016 – 2018"               // For education (using en-dash)
+    ```
+  </Accordion>
+
+  <Accordion title="Test terminal commands after changes">
+    After adding or modifying entries:
+    1. Save the file
+    2. Refresh your development server
+    3. Open the terminal
+    4. Test each new slug:
+       ```bash
+       show proyectos/new-project-slug
+       show trabajos/new-job-slug
+       show estudios/new-degree-slug
+       ```
+  </Accordion>
+</AccordionGroup>
+
+## Terminal Prompt Customization
+
+The terminal prompt appears before each command:
+
+```typescript app/textos.ts
+terminal: {
+  prompt: "visitor@javier.dev",
+  // ...
+}
+```
+
+Customize it to match your domain or style:
+- `visitor@yourname.dev`
+- `guest@portfolio`
+- `user@terminal`
+
+## Common Issues
+
+<Warning>
+**Slug not found in terminal**: Ensure the slug exactly matches (case-sensitive) and is defined in the correct array.
+</Warning>
+
+<Warning>
+**Terminal command not working**: Check for typos in slugs and ensure there are no special characters or spaces.
+</Warning>
+
+<Warning>
+**Missing content**: Verify all required fields are present for each entry. Optional fields like `proyectos` in `trabajos` can be omitted.
+</Warning>
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Portfolio Content" href="/customization/portfolio-content" icon="pen">
+    Learn about all content sections in textos.ts
+  </Card>
+  
+  <Card title="Calendar Events" href="/customization/calendar-events" icon="calendar">
+    Add calendar events linked to your work history
+  </Card>
+</CardGroup>

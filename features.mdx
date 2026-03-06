@@ -1,0 +1,645 @@
+---
+title: 'Features'
+description: 'Explore the interactive features and components of Portfolio Javier Navas'
+icon: 'star'
+---
+
+## Overview
+
+Portfolio Javier Navas offers a unique, macOS-inspired desktop experience directly in your browser. Built with React Router 7, it combines modern web technologies with a nostalgic desktop interface.
+
+<Note>
+  All windows are fully draggable, resizable, and support minimize/maximize operations just like a real desktop OS.
+</Note>
+
+## Core Features
+
+<CardGroup cols={2}>
+  <Card title="Interactive Desktop" icon="desktop" color="#07f1b7">
+    Full macOS-style desktop environment with drag-and-drop windows
+  </Card>
+  <Card title="Terminal Emulator" icon="terminal" color="#818cf8">
+    Fully functional terminal with file system navigation and custom commands
+  </Card>
+  <Card title="Calendar System" icon="calendar" color="#c084fc">
+    Event calendar with company filtering and detailed project views
+  </Card>
+  <Card title="Photo Gallery" icon="images" color="#07f1b7">
+    Grid-based photo viewer with preview panel
+  </Card>
+  <Card title="Window Management" icon="window-restore" color="#818cf8">
+    Minimize, maximize, close, and drag windows anywhere
+  </Card>
+  <Card title="File Browser" icon="folder-open" color="#c084fc">
+    Finder-style interface for browsing projects, experience, and studies
+  </Card>
+</CardGroup>
+
+## Desktop Environment
+
+The desktop component (`app/components/Desktop.tsx`) is the heart of the application, managing all windows and state.
+
+### Menu Bar
+
+The top menu bar displays:
+- Portfolio owner's name ("JN" logo)
+- System time (optional)
+- Apple-style menu options
+
+### Desktop Icons
+
+Four folders are displayed on the left side of the desktop:
+
+```tsx
+const folders = [
+  { id: "proyectos",   label: "Proyectos",   icon: "📁" },
+  { id: "experiencia", label: "Experiencia", icon: "💼" },
+  { id: "estudios",    label: "Estudios",    icon: "🎓" },
+  { id: "fotos",       label: "Fotos",       icon: "📷" },
+];
+```
+
+Double-click any folder to open its window.
+
+### Dock
+
+The bottom dock provides quick access to all applications:
+
+<CardGroup cols={3}>
+  <Card title="Terminal" icon="terminal">
+    🖥️ Command-line interface
+  </Card>
+  <Card title="Proyectos" icon="folder">
+    📁 Projects folder
+  </Card>
+  <Card title="Experiencia" icon="briefcase">
+    💼 Work experience
+  </Card>
+  <Card title="Estudios" icon="graduation-cap">
+    🎓 Education history
+  </Card>
+  <Card title="Fotos" icon="camera">
+    📷 Photo gallery
+  </Card>
+  <Card title="Calendario" icon="calendar">
+    📅 Event calendar
+  </Card>
+</CardGroup>
+
+<Tip>
+  Icons in the dock show a subtle glow effect when their window is open.
+</Tip>
+
+## Terminal Emulator
+
+The terminal (`app/components/Terminal.tsx`) is a fully functional command-line interface with:
+
+### File System Navigation
+
+Navigate through a virtual file system structure:
+
+```bash
+~
+├── proyectos/
+│   ├── Arcadiax.txt
+│   ├── Automatizacion_Francia.txt
+│   └── Pipeline_PositionHoldings.txt
+├── trabajos/
+│   ├── Everis.txt
+│   ├── Inetum.txt
+│   └── NFQ.txt
+└── estudios/
+    ├── grado-informatica.txt
+    └── DAM.txt
+```
+
+### Command Set
+
+Example terminal session:
+
+```bash
+visitor@javier.dev:~$ help
+
+Comandos disponibles:
+─────────────────────────────────────────────────
+  about               → Sobre mí
+  whoami              → Quién soy
+  ls / dir            → Listar directorio actual
+  cd <carpeta>        → Entrar en una carpeta
+  cd ..               → Volver atrás
+  cat <archivo.txt>   → Leer un archivo
+  open cv.pdf         → Abrir / descargar el CV
+  ping <proyecto>     → Info + URL de un proyecto
+  git init            → Mi cuenta de GitHub
+  clear               → Limpiar terminal
+
+visitor@javier.dev:~$ cd proyectos
+visitor@javier.dev:~/proyectos$ ls
+  Arcadiax.txt    Automatizacion_Francia.txt    Pipeline_PositionHoldings.txt
+
+visitor@javier.dev:~/proyectos$ cat Arcadiax.txt
+
+  Arcadiax
+─────────────────────────────────────────────────
+  Descripción: ArcadiaX es un ecosistema tecnológico personal...
+  Tech:        React · TypeScript · Node.js
+  URL:         https://proyecto1.com
+```
+
+### Tab Completion
+
+Press `Tab` to autocomplete commands, file names, and folder names:
+
+```tsx
+function getCompletions(raw: string): string[] {
+  const parts = raw.split(/\s+/);
+  
+  // Command completion
+  if (parts.length === 1) {
+    return COMMANDS.filter((c) => c.startsWith(parts[0]));
+  }
+  
+  // File/folder completion based on current command
+  // ...
+}
+```
+
+### Command History
+
+Use ↑ and ↓ arrow keys to navigate through previous commands.
+
+<Warning>
+  The terminal is read-only - you cannot modify the actual file system. It's a simulated environment for portfolio presentation.
+</Warning>
+
+## Window System
+
+The window component (`app/components/Window.tsx`) provides a complete window management system.
+
+### Window Controls
+
+Each window has three macOS-style buttons:
+
+- **🔴 Red** - Close window
+- **🟡 Yellow** - Minimize to dock
+- **🟢 Green** - Maximize/restore window
+
+### Draggable Windows
+
+Windows use `react-draggable` for smooth drag operations:
+
+```tsx
+import Draggable from "react-draggable";
+
+<Draggable
+  nodeRef={nodeRef}
+  handle=".win-titlebar"
+  cancel=".win-btn"
+  defaultPosition={defaultPosition}
+  bounds={{ top: 30, left: 0 }}
+>
+  {windowContent}
+</Draggable>
+```
+
+### Z-Index Management
+
+Windows automatically come to front when clicked:
+
+```tsx
+const bringToFront = useCallback((id: WinId) => {
+  topZRef.current += 1;
+  const z = topZRef.current;
+  setWindows((ws) => ws.map((w) => 
+    w.id === id ? { ...w, zIndex: z } : w
+  ));
+}, []);
+```
+
+### Window State
+
+Each window maintains its state:
+
+```tsx
+interface WinState {
+  id: WinId;
+  title: string;
+  isOpen: boolean;
+  isMinimized: boolean;
+  zIndex: number;
+  defaultPosition: { x: number; y: number };
+  width: number;
+  height: number;
+}
+```
+
+## Finder-Style Browser
+
+The file browser provides a macOS Finder-like experience for navigating content.
+
+### Sidebar Navigation
+
+```tsx
+<div className="flex h-full">
+  {/* Sidebar */}
+  <div className="w-36 shrink-0 bg-[#1a1a1a]">
+    <p className="text-gray-500">Favoritos</p>
+    {allFolders.map((f) => (
+      <button onClick={() => setActive(f.key)}>
+        <span>{f.icon}</span>
+        <span>{f.label}</span>
+      </button>
+    ))}
+  </div>
+  
+  {/* Files grid */}
+  <div className="flex-1 bg-[#1e1e1e]">
+    {current.items.map((item) => (
+      <TxtFileIcon name={item.name} onOpen={item.onOpen} />
+    ))}
+  </div>
+</div>
+```
+
+### File Icons
+
+Double-click any `.txt` file to open it in a new document window:
+
+```tsx
+function TxtFileIcon({ name, onOpen }: { name: string; onOpen: () => void }) {
+  return (
+    <div onDoubleClick={onOpen} className="group">
+      <span className="text-5xl">📄</span>
+      <span className="text-xs">{name}.txt</span>
+    </div>
+  );
+}
+```
+
+### Document Viewer
+
+Opened documents display formatted content:
+
+```tsx
+function ProyectoDoc({ p }: { p: Proyecto }) {
+  return (
+    <DocView>
+      <p className="text-yellow-400 font-bold">{p.name}</p>
+      <p className="text-gray-500">~/proyectos/{p.slug}.txt</p>
+      <div className="border-t border-white/10 pt-4 space-y-4">
+        <div>
+          <p className="text-cyan-400">Descripción</p>
+          <p className="text-gray-300">{p.description}</p>
+        </div>
+        <div>
+          <p className="text-cyan-400">Tecnologías</p>
+          <div className="flex gap-2">
+            {p.tech.map((t) => (
+              <span key={t} className="badge">{t}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </DocView>
+  );
+}
+```
+
+## Calendar System
+
+The calendar (`app/components/Calendar.tsx`) provides a comprehensive event tracking system.
+
+### Company Filtering
+
+Filter events by company with color-coded categories:
+
+```tsx
+const calendarCompanies = [
+  { key: "everis", label: "Everis", color: "#07f1b7" },
+  { key: "inetum", label: "Inetum", color: "#818cf8" },
+  { key: "nfq",    label: "NFQ",    color: "#c084fc" },
+];
+```
+
+<CardGroup cols={3}>
+  <Card title="Everis" icon="building">
+    <div style={{color: "#07f1b7"}}>● Teal color</div>
+  </Card>
+  <Card title="Inetum" icon="building">
+    <div style={{color: "#818cf8"}}>● Indigo color</div>
+  </Card>
+  <Card title="NFQ" icon="building">
+    <div style={{color: "#c084fc"}}>● Purple color</div>
+  </Card>
+</CardGroup>
+
+### Event Structure
+
+Each event contains detailed information:
+
+```tsx
+interface CalEvent {
+  id: string;
+  title: string;
+  category: CalCategory;
+  problema: string;      // Problem statement
+  solucion: string;      // Solution implemented
+  aprendizaje: string;   // Lessons learned
+  start: Date;
+  end?: Date;
+  color: string;
+}
+```
+
+### Interactive Calendar Grid
+
+- Month navigation (previous/next)
+- "Today" quick button
+- Click any day to view events
+- Color-coded event indicators
+- Sidebar detail panel
+
+### MongoDB Integration
+
+Dynamic events can be loaded from MongoDB:
+
+```tsx
+export async function loader() {
+  try {
+    const nfqEvents = await getNfqEvents();
+    console.log(`[MongoDB] ${nfqEvents.length} eventos NFQ cargados`);
+    return { nfqEvents };
+  } catch (e) {
+    console.error("[MongoDB] Error:", (e as Error).message);
+    return { nfqEvents: [] };
+  }
+}
+```
+
+From `app/lib/mongodb.server.ts`:
+
+```tsx
+export async function getNfqEvents(): Promise<NfqEventRaw[]> {
+  const client = await getClient();
+  const db = process.env.MONGODB_DB ?? "portafolio";
+  const col = process.env.MONGODB_COLLECTION_NFQ ?? "nfq";
+  const docs = await client
+    .db(db)
+    .collection(col)
+    .find({})
+    .sort({ fecha: 1 })
+    .toArray();
+
+  return docs.map((doc) => ({
+    id: doc._id.toString(),
+    title: doc.titulo as string,
+    category: "nfq" as const,
+    problema: doc.problema as string,
+    solucion: doc.solucion as string,
+    aprendizaje: doc.aprendizaje as string,
+    start: new Date(doc.fecha as string | Date).toISOString(),
+    color: "#c084fc",
+  }));
+}
+```
+
+<Tip>
+  The calendar merges static events from `textos.ts` with dynamic MongoDB events, giving you flexibility in content management.
+</Tip>
+
+## Photo Gallery
+
+The photo gallery (`app/components/PhotoGallery.tsx`) provides an elegant image viewing experience.
+
+### Grid Layout
+
+```tsx
+const FOTOS: string[] = [
+  "img1.jpg",
+  "img2.jpg",
+  "img3.jpg",
+  "img4.jpg",
+  "img5.JPG",
+];
+
+return (
+  <div className="h-full flex bg-[#111]">
+    {/* Grid */}
+    <div className="flex-1 overflow-auto p-4">
+      <div className="grid grid-cols-3 gap-2">
+        {FOTOS.map((foto) => (
+          <button
+            key={foto}
+            onClick={() => setSelected(foto)}
+            onDoubleClick={() => onOpenPhoto(foto)}
+            className="aspect-square overflow-hidden rounded-lg"
+          >
+            <img
+              src={`/fotos/${foto}`}
+              alt={foto}
+              className="w-full h-full object-cover"
+            />
+          </button>
+        ))}
+      </div>
+    </div>
+    
+    {/* Preview panel */}
+    {selected && (
+      <div className="w-56 shrink-0 border-l">
+        <img src={`/fotos/${selected}`} />
+        <button onClick={() => onOpenPhoto(selected)}>
+          Abrir en visor
+        </button>
+      </div>
+    )}
+  </div>
+);
+```
+
+### Features
+
+- 3-column responsive grid
+- Click to select photo
+- Double-click to open in full viewer
+- Preview panel on the right
+- Smooth transitions and hover effects
+
+<Note>
+  Add your photos to the `public/fotos/` directory and update the `FOTOS` array in `PhotoGallery.tsx`.
+</Note>
+
+## Content Management
+
+All portfolio content is centralized in `app/textos.ts`:
+
+```tsx
+export const textos = {
+  meta: {
+    title: "Portfolio · Javier Navas",
+    description: "Portfolio personal de Javier Navas...",
+  },
+  
+  terminal: {
+    prompt: "visitor@javier.dev",
+    about: [
+      "Hola, soy Javier Navas.",
+      "Ingeniero Informático apasionado por...",
+    ],
+    
+    proyectos: [
+      {
+        slug: "Arcadiax",
+        name: "Arcadiax",
+        description: "ArcadiaX es un ecosistema tecnológico...",
+        tech: ["React", "TypeScript", "Node.js"],
+        url: "https://proyecto1.com",
+      },
+      // More projects...
+    ],
+    
+    trabajos: [
+      {
+        slug: "NFQ",
+        empresa: "NFQ",
+        rol: "Consultor en banca",
+        periodo: "Octubre 2025 - Actual",
+        descripcion: "En NFQ Advisory Solutions trabajo en...",
+      },
+      // More jobs...
+    ],
+    
+    estudios: [
+      {
+        slug: "grado-informatica",
+        titulo: "Grado en Ingeniería Informática",
+        centro: "En la universidad he adquirido...",
+        periodo: "2018 – 2026",
+      },
+      // More education...
+    ],
+  },
+};
+```
+
+## Responsive Design
+
+The portfolio is fully responsive:
+
+- **Desktop** (768px and above): Full window management system
+- **Mobile** (below 768px): Simplified single-window view
+- **Touch Support**: Mobile devices can interact with the terminal
+
+```tsx
+useEffect(() => {
+  if (window.innerWidth >= 768) inputRef.current?.focus();
+}, []);
+```
+
+## Technology Stack
+
+<CardGroup cols={2}>
+  <Card title="React Router 7" icon="route">
+    Full-stack framework with SSR
+  </Card>
+  <Card title="React 19" icon="react">
+    Latest React with concurrent features
+  </Card>
+  <Card title="TailwindCSS 4" icon="palette">
+    Utility-first CSS framework
+  </Card>
+  <Card title="TypeScript" icon="code">
+    Type-safe development
+  </Card>
+  <Card title="react-draggable" icon="arrows-up-down-left-right">
+    Drag-and-drop functionality
+  </Card>
+  <Card title="MongoDB" icon="database">
+    Optional database integration
+  </Card>
+</CardGroup>
+
+## Performance Features
+
+### Server-Side Rendering
+
+Enabled by default in `react-router.config.ts`:
+
+```tsx
+export default {
+  ssr: true,
+} satisfies Config;
+```
+
+### Code Splitting
+
+React Router automatically splits routes for optimal loading.
+
+### Asset Optimization
+
+Vite handles:
+- CSS minification
+- JavaScript bundling
+- Image optimization
+- Tree shaking
+
+### Lazy Loading
+
+Dynamic imports for heavy components:
+
+```tsx
+const PhotoViewer = lazy(() => import('./PhotoViewer'));
+```
+
+## Customization Options
+
+### Theme Colors
+
+Brand colors are used throughout:
+
+- **Primary**: `#07f1b7` (Teal)
+- **Light**: `#818cf8` (Indigo)
+- **Dark**: `#c084fc` (Purple)
+
+### Window Appearance
+
+```tsx
+const INITIAL_WINDOWS: WinState[] = [
+  {
+    id: "terminal",
+    title: "visitor@javier.dev — terminal",
+    defaultPosition: { x: 140, y: 50 },
+    width: 720,
+    height: 500,
+  },
+  // Customize positions and sizes...
+];
+```
+
+### ASCII Art
+
+Customize the terminal banner in `Terminal.tsx`:
+
+```tsx
+const ASCII = `
+     ██╗ █████╗ ██╗   ██╗██╗███████╗██████╗
+     // Your custom ASCII art...
+`;
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Customize Content" icon="pen-to-square" href="/customization/portfolio-content">
+    Learn how to personalize the portfolio for your own use
+  </Card>
+  <Card title="Component Reference" icon="cubes" href="/components/desktop">
+    Detailed API documentation for each component
+  </Card>
+  <Card title="Deploy" icon="rocket" href="/deployment/docker">
+    Deploy your portfolio to production
+  </Card>
+  <Card title="Terminal Data" icon="terminal" href="/customization/terminal-data">
+    Customize terminal commands and content
+  </Card>
+</CardGroup>

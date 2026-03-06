@@ -1,0 +1,314 @@
+---
+title: Portfolio Content
+description: Customize all text content, projects, work experience, and education in your portfolio
+icon: pen
+---
+
+## Overview
+
+All portfolio content is centralized in `app/textos.ts`. This file contains:
+- Site metadata (title, description)
+- Navigation links
+- Hero section text
+- Terminal content (about, projects, work history, education)
+- Calendar events
+
+<Info>
+The `textos.ts` file follows a structured format that feeds content to multiple components throughout the portfolio.
+</Info>
+
+## File Structure
+
+The main content object is located at:
+```
+app/textos.ts
+```
+
+## Customizing Meta and Navigation
+
+### Site Metadata
+
+Update the `meta` section to customize your site title and description:
+
+```typescript app/textos.ts
+export const textos = {
+  meta: {
+    title: "Portfolio · Javier Navas",
+    description: "Portfolio personal de Javier Navas, Ingeniero Informático y Desarrollador Full Stack.",
+  },
+  // ...
+};
+```
+
+### Navigation
+
+Customize the navigation bar:
+
+```typescript app/textos.ts
+nav: {
+  logo: "JN",
+  githubUrl: "https://github.com/navas98",
+  links: [
+    { label: "Sobre mí", href: "#sobre-mi" },
+    { label: "Proyectos", href: "#proyectos" },
+    { label: "Contacto", href: "#contacto" },
+  ],
+},
+```
+
+**Fields:**
+- `logo` - Text displayed in the top-left corner (typically initials)
+- `githubUrl` - Your GitHub profile URL
+- `links` - Array of navigation links with `label` and `href`
+
+## Customizing Hero Section
+
+The hero section appears at the top of your portfolio:
+
+```typescript app/textos.ts
+hero: {
+  greeting: "Hola, soy",
+  name: "Javier Navas",
+  roles: [
+    "Ingeniero Informático",
+    "Desarrollador Full Stack",
+    "Desarrollador Frontend",
+  ],
+  ctas: {
+    proyectos: "Ver proyectos",
+    cv: "Descargar CV",
+    cvUrl: "/cv.pdf",
+    contacto: "Contactar",
+  },
+  scroll: "scroll",
+},
+```
+
+**Key fields:**
+- `greeting` - Greeting text (e.g., "Hello, I'm")
+- `name` - Your full name
+- `roles` - Array of role titles that animate/rotate
+- `ctas.cvUrl` - Path to your CV file (place in `public/` folder)
+
+## Customizing Projects
+
+<Steps>
+  <Step title="Locate the projects array">
+    Find the `terminal.proyectos` array in `textos.ts`:
+    ```typescript app/textos.ts
+    terminal: {
+      proyectos: [
+        // Your projects here
+      ],
+    }
+    ```
+  </Step>
+
+  <Step title="Add or edit a project">
+    Each project follows this structure:
+    ```typescript
+    {
+      slug: "Arcadiax",
+      name: "Arcadiax",
+      description: "ArcadiaX es un ecosistema tecnológico personal que integra sistemas distribuidos, inteligencia artificial y hardware conectado para crear una infraestructura doméstica unificada orientada al control, la automatización y la experiencia multimedia",
+      tech: ["React", "TypeScript", "Node.js"],
+      url: "https://proyecto1.com",
+    }
+    ```
+  </Step>
+
+  <Step title="Understand the fields">
+    - **`slug`** - Unique identifier (used for terminal navigation: `show proyectos/Arcadiax`)
+    - **`name`** - Display name of the project
+    - **`description`** - Detailed description of what the project does
+    - **`tech`** - Array of technologies used
+    - **`url`** - Project URL (can be empty string if not available)
+  </Step>
+</Steps>
+
+### Example: Adding a New Project
+
+<CodeGroup>
+```typescript Before
+proyectos: [
+  {
+    slug: "Arcadiax",
+    name: "Arcadiax",
+    description: "ArcadiaX es un ecosistema tecnológico personal...",
+    tech: ["React", "TypeScript", "Node.js"],
+    url: "https://proyecto1.com",
+  },
+]
+```
+
+```typescript After
+proyectos: [
+  {
+    slug: "Arcadiax",
+    name: "Arcadiax",
+    description: "ArcadiaX es un ecosistema tecnológico personal...",
+    tech: ["React", "TypeScript", "Node.js"],
+    url: "https://proyecto1.com",
+  },
+  {
+    slug: "my-new-project",
+    name: "My New Project",
+    description: "An innovative solution for managing project workflows with real-time collaboration.",
+    tech: ["Next.js", "PostgreSQL", "Tailwind CSS"],
+    url: "https://mynewproject.com",
+  },
+]
+```
+</CodeGroup>
+
+## Customizing Work Experience
+
+<Steps>
+  <Step title="Locate the work array">
+    Find the `terminal.trabajos` array:
+    ```typescript app/textos.ts
+    terminal: {
+      trabajos: [
+        // Your work experience here
+      ],
+    }
+    ```
+  </Step>
+
+  <Step title="Add or edit work experience">
+    Each job follows this structure:
+    ```typescript
+    {
+      slug: "NFQ",
+      empresa: "NFQ",
+      rol: "Consultor en banca",
+      periodo: "Octubre 2025 - Actual",
+      descripcion: "En NFQ Advisory Solutions trabajo en ingeniería de datos financiera, desarrollando y optimizando pipelines entre AWS y BigQuery. Automatizo procesos críticos, validaciones y migraciones de datos en entornos cloud.",
+      proyectos: "Proyectos: {Automatización Francia, Pipeline PositionHoldings}"
+    }
+    ```
+  </Step>
+
+  <Step title="Understand the fields">
+    - **`slug`** - Unique identifier for terminal navigation
+    - **`empresa`** - Company name
+    - **`rol`** - Your role/position
+    - **`periodo`** - Time period (e.g., "Marzo 2018 - Junio 2018")
+    - **`descripcion`** - Description of your responsibilities
+    - **`proyectos`** - (Optional) Related projects you worked on
+  </Step>
+</Steps>
+
+### Real Example from the Source
+
+```typescript app/textos.ts
+{
+  slug: "Inetum",
+  empresa: "Inetum",
+  rol: "Desarrollador de Sistemas de Inteligencia Artificial",
+  periodo: "Octubre 2024 - Julio 2025",
+  descripcion: "En Inetum desarrollé soluciones de inteligencia artificial y backend, integrando modelos de visión artificial en aplicaciones móviles y construyendo APIs y sistemas de análisis de datos orientados a producción.",
+  proyectos: "Proyectos: {Optimus price, Marketing Mix}"
+}
+```
+
+## Customizing Education
+
+<Steps>
+  <Step title="Locate the education array">
+    Find the `terminal.estudios` array:
+    ```typescript app/textos.ts
+    terminal: {
+      estudios: [
+        // Your education here
+      ],
+    }
+    ```
+  </Step>
+
+  <Step title="Add or edit education">
+    Each degree follows this structure:
+    ```typescript
+    {
+      slug: "grado-informatica",
+      titulo: "Grado en Ingeniería Informática",
+      centro: "En la universidad he adquirido una base sólida en arquitectura de computadores, sistemas operativos, redes y estructuras de datos...",
+      periodo: "2018 – 2026",
+    }
+    ```
+  </Step>
+
+  <Step title="Understand the fields">
+    - **`slug`** - Unique identifier for terminal navigation
+    - **`titulo`** - Degree title
+    - **`centro`** - Description of the institution and what you learned
+    - **`periodo`** - Time period
+  </Step>
+</Steps>
+
+### Real Example from the Source
+
+```typescript app/textos.ts
+{
+  slug: "DAM",
+  titulo: "Desarrollo de aplicaciones multiplataforma",
+  centro: "En el ciclo de Desarrollo de Aplicaciones Multiplataforma (DAM) adquirí experiencia en programación orientada a objetos, desarrollo de aplicaciones móviles y de escritorio, y diseño de bases de datos relacionales.",
+  periodo: "2016 – 2018",
+}
+```
+
+## Customizing Terminal About Section
+
+The `terminal.about` array displays when users type `about` in the terminal:
+
+```typescript app/textos.ts
+terminal: {
+  prompt: "visitor@javier.dev",
+  about: [
+    "Hola, soy Javier Navas.",
+    "Ingeniero Informático apasionado por construir productos digitales con buen código y mejor diseño.",
+    "Me especializo en desarrollo Full Stack, con foco en el frontend y experiencia de usuario.",
+    "Siempre buscando nuevos retos que combinen tecnología y creatividad.",
+  ],
+}
+```
+
+**Fields:**
+- `prompt` - The terminal prompt text (e.g., "visitor@yourname.dev")
+- `about` - Array of strings, each becomes a new line
+
+<Tip>
+Keep each line concise for better readability in the terminal interface.
+</Tip>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use descriptive slugs" icon="link">
+    Slugs are used for navigation. Use kebab-case and make them memorable: `grado-informatica`, `my-project`
+  </Card>
+  
+  <Card title="Keep descriptions focused" icon="align-left">
+    Write clear, concise descriptions that highlight key achievements and technologies
+  </Card>
+  
+  <Card title="Update dates regularly" icon="calendar">
+    Keep your work experience and education dates current, especially "Actual" for current positions
+  </Card>
+  
+  <Card title="Test terminal commands" icon="terminal">
+    After adding new entries, test the terminal commands like `show proyectos/your-slug`
+  </Card>
+</CardGroup>
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Terminal Data" href="/customization/terminal-data" icon="terminal">
+    Learn more about terminal navigation and data structures
+  </Card>
+  
+  <Card title="Calendar Events" href="/customization/calendar-events" icon="calendar">
+    Add calendar events for your work history
+  </Card>
+</CardGroup>

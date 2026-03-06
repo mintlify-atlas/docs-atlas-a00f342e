@@ -1,0 +1,372 @@
+---
+title: Desktop System
+description: Understanding the Desktop component architecture and window state management
+---
+
+The Desktop component is the core orchestrator of the portfolio's macOS-inspired interface. It manages all windows, handles z-index layering, coordinates folder icons, and integrates with the dock.
+
+## Architecture Overview
+
+The Desktop component (`app/components/Desktop.tsx`) manages two types of windows:
+
+1. **Static Windows**: Pre-defined windows (Terminal, Proyectos, Experiencia, Estudios, Fotos, Calendario)
+2. **Dynamic Windows**: Runtime-created document windows when users open files
+
+## Type Definitions
+
+### WinId Type
+
+Defines all possible static window identifiers:
+
+```typescript
+type WinId = "terminal" | "proyectos" | "experiencia" | "estudios" | "fotos" | "calendario";
+```
+
+### WinState Interface
+
+Represents the state of a static window:
+
+```typescript
+interface WinState {
+  id: WinId;
+  title: string;
+  isOpen: boolean;
+  isMinimized: boolean;
+  zIndex: number;
+  defaultPosition: { x: number; y: number };
+  width: number;
+  height: number;
+}
+```
+
+**Properties:**
+- `id`: Unique identifier from WinId type
+- `title`: Display title in the window's title bar
+- `isOpen`: Whether the window is currently open
+- `isMinimized`: Whether the window is minimized to the dock
+- `zIndex`: CSS z-index for layering (higher = on top)
+- `defaultPosition`: Initial x/y coordinates on desktop
+- `width/height`: Window dimensions in pixels
+
+### DynWin Interface
+
+Represents a dynamically created document window:
+
+```typescript
+interface DynWin {
+  id: string;
+  title: string;
+  content: ReactNode;
+  isMinimized: boolean;
+  zIndex: number;
+  defaultPosition: { x: number; y: number };
+}
+```
+
+**Key Differences from WinState:**
+- Uses string `id` instead of WinId enum (generated at runtime)
+- Contains `content` ReactNode instead of referencing a component by ID
+- No fixed width/height (uses default 480x420)
+
+## Z-Index Management System
+
+The Desktop uses a ref-based z-index counter to ensure windows layer correctly:
+
+```typescript
+const topZRef = useRef(10);
+
+const bringToFront = useCallback((id: WinId) => {
+  topZRef.current += 1;
+  const z = topZRef.current;
+  setWindows((ws) => ws.map((w) => w.id === id ? { ...w, zIndex: z } : w));
+}, []);
+```
+
+**How it works:**
+
+1. All windows start with `zIndex: 10`
+2. When a window gains focus, `topZRef.current` increments
+3. The focused window receives the new z-index value
+4. This ensures the most recently focused window is always on top
+
+**Used by:**
+- `bringToFront()`: When user clicks a static window
+- `openWindow()`: When opening/restoring a window
+- `openDoc()`: When creating a dynamic document window
+- `focusDynWin()`: When user clicks a dynamic window
+
+## Initial Window Configuration
+
+```typescript
+const INITIAL_WINDOWS: WinState[] = [
+  {
+    id: "terminal",
+    title: "visitor@javier.dev — terminal",
+    isOpen: true,  // Terminal opens by default
+    isMinimized: false,
+    zIndex: 10,
+    defaultPosition: { x: 140, y: 50 },
+    width: 720,
+    height: 500,
+  },
+  {
+    id: "proyectos",
+    title: "📁  Proyectos",
+    isOpen: false,
+    isMinimized: false,
+    zIndex: 10,
+    defaultPosition: { x: 160, y: 50 },
+    width: 640,
+    height: 400,
+  },
+  // ... other windows
+];
+```
+
+## Window Operations
+
+### Static Window Operations
+
+<Accordion title="openWindow()">
+```typescript
+const openWindow = useCallback((id: WinId) => {
+  topZRef.current += 1;
+  const z = topZRef.current;
+  setWindows((ws) =>
+    ws.map((w) => w.id === id ? { ...w, isOpen: true, isMinimized: false, zIndex: z } : w)
+  );
+}, []);
+```
+
+Opens a window and brings it to the front. Called by:
+- Dock item clicks
+- Folder icon double-clicks
+- Terminal `open` commands (indirectly)
+</Accordion>
+
+<Accordion title="closeWindow()">
+```typescript
+const closeWindow = useCallback((id: WinId) => {
+  setWindows((ws) => ws.map((w) => w.id === id ? { ...w, isOpen: false, isMinimized: false } : w));
+}, []);
+```
+
+Closes a window completely. Called when user clicks the red close button.
+</Accordion>
+
+<Accordion title="minimizeWindow()">
+```typescript
+const minimizeWindow = useCallback((id: WinId) => {
+  setWindows((ws) => ws.map((w) => w.id === id ? { ...w, isMinimized: true } : w));
+}, []);
+```
+
+Minimizes a window to the dock. Called when user clicks the yellow minimize button.
+</Accordion>
+
+<Accordion title="bringToFront()">
+```typescript
+const bringToFront = useCallback((id: WinId) => {
+  topZRef.current += 1;
+  const z = topZRef.current;
+  setWindows((ws) => ws.map((w) => w.id === id ? { ...w, zIndex: z } : w));
+}, []);
+```
+
+Brings a window to the front without changing its open/minimized state. Called when user clicks anywhere on a window.
+</Accordion>
+
+### Dynamic Window Operations
+
+<Accordion title="openDoc()">
+```typescript
+const openDoc = useCallback((title: string, content: ReactNode) => {
+  topZRef.current += 1;
+  const z = topZRef.current;
+  const id = `doc-${Date.now()}`;
+  const offset = (topZRef.current % 6) * 18;
+  setDynWindows((ws) => [...ws, {
+    id, title, content,
+    isMinimized: false,
+    zIndex: z,
+    defaultPosition: { x: 260 + offset, y: 50 + offset },
+  }]);
+}, []);
+```
+
+**Features:**
+- Generates unique ID using timestamp
+- Cascades windows (offset based on z-index % 6)
+- Used by Finder windows when double-clicking files
+
+**Example usage:**
+```typescript
+<TxtFileIcon 
+  name="arcadiax" 
+  onOpen={() => onOpenDoc(
+    "arcadiax.txt", 
+    <ProyectoDoc p={proyectoData} />
+  )} 
+/>
+```
+</Accordion>
+
+<Accordion title="closeDynWin()">
+```typescript
+const closeDynWin = useCallback((id: string) => {
+  setDynWindows((ws) => ws.filter((w) => w.id !== id));
+}, []);
+```
+
+Removes a dynamic window from the array (destroying it).
+</Accordion>
+
+## Folder Icons & Desktop Layout
+
+```typescript
+const folders = [
+  { id: "proyectos"   as WinId, label: "Proyectos",   icon: "📁" },
+  { id: "experiencia" as WinId, label: "Experiencia", icon: "💼" },
+  { id: "estudios"    as WinId, label: "Estudios",    icon: "🎓" },
+  { id: "fotos"       as WinId, label: "Fotos",       icon: "📷" },
+];
+```
+
+### Desktop Structure
+
+```tsx
+<div className="w-screen h-screen overflow-hidden relative">
+  <MenuBar />
+
+  {/* Desktop area: between MenuBar and Dock */}
+  <div className="absolute top-7 left-0 right-0 bottom-20 overflow-hidden">
+    
+    {/* Folder icons (top-left corner) */}
+    <div className="absolute top-4 left-6 flex flex-col gap-5">
+      {folders.map((f) => (
+        <FolderIcon key={f.id} label={f.label} icon={f.icon} onOpen={() => openWindow(f.id)} />
+      ))}
+    </div>
+
+    {/* Static windows */}
+    {windows.filter((w) => w.isOpen).map((w) => (
+      <Window
+        key={w.id}
+        title={w.title}
+        onClose={() => closeWindow(w.id)}
+        onMinimize={() => minimizeWindow(w.id)}
+        onFocus={() => bringToFront(w.id)}
+        zIndex={w.zIndex}
+        defaultPosition={w.defaultPosition}
+        width={w.width}
+        height={w.height}
+        isMinimized={w.isMinimized}
+      >
+        {getContent(w.id)}
+      </Window>
+    ))}
+
+    {/* Dynamic document windows */}
+    {dynWindows.map((w) => (
+      <Window
+        key={w.id}
+        title={w.title}
+        onClose={() => closeDynWin(w.id)}
+        onMinimize={() => minimizeDynWin(w.id)}
+        onFocus={() => focusDynWin(w.id)}
+        zIndex={w.zIndex}
+        defaultPosition={w.defaultPosition}
+        width={480}
+        height={420}
+        isMinimized={w.isMinimized}
+      >
+        {w.content}
+      </Window>
+    ))}
+  </div>
+
+  <Dock items={dockItems} />
+</div>
+```
+
+## Dock Integration
+
+```typescript
+const dockItems = [
+  { 
+    id: "terminal", 
+    icon: "🖥️", 
+    label: "Terminal", 
+    onClick: () => openWindow("terminal"), 
+    isOpen: windows.find((w) => w.id === "terminal")?.isOpen 
+  },
+  { 
+    id: "proyectos", 
+    icon: "📁", 
+    label: "Proyectos", 
+    onClick: () => openWindow("proyectos"), 
+    isOpen: windows.find((w) => w.id === "proyectos")?.isOpen 
+  },
+  // ... other dock items
+];
+```
+
+**Key features:**
+- `isOpen` prop adds visual indicator (dot under icon) when window is open
+- Clicking dock item calls `openWindow()`, which restores minimized windows or opens closed ones
+- Dynamic windows don't appear in the dock
+
+## Content Resolver Pattern
+
+```typescript
+function getContent(id: WinId): ReactNode {
+  switch (id) {
+    case "terminal":     return <Terminal embedded />;
+    case "proyectos":   return <ProyectosContent onOpenDoc={openDoc} />;
+    case "experiencia": return <ExperienciaContent onOpenDoc={openDoc} />;
+    case "estudios":    return <EstudiosContent onOpenDoc={openDoc} />;
+    case "fotos":       return <PhotoGallery onOpenPhoto={(foto) => 
+      openDoc(foto, <PhotoViewer src={`/fotos/${foto}`} name={foto} />)
+    } />;
+    case "calendario":  return <Calendar nfqEvents={nfqEvents} />;
+  }
+}
+```
+
+**Pattern benefits:**
+- Centralizes content rendering logic
+- Passes `openDoc` callback to Finder-style components
+- Handles prop passing (e.g., `nfqEvents` to Calendar)
+- Type-safe with WinId enum
+
+## Best Practices
+
+<Card title="Managing Window State" icon="layer-group">
+**Always use the provided callbacks:**
+- `openWindow()` for static windows
+- `openDoc()` for dynamic document windows
+- `bringToFront()` when user interacts with a window
+- Never mutate `zIndex` directly—always increment `topZRef.current`
+</Card>
+
+<Card title="Creating New Window Types" icon="plus">
+1. Add the window ID to the `WinId` type
+2. Add configuration to `INITIAL_WINDOWS`
+3. Add a case to `getContent()` function
+4. Add to `folders` array (if desktop icon needed)
+5. Add to `dockItems` array (if dock icon needed)
+</Card>
+
+<Card title="Performance Considerations" icon="bolt">
+- Window operations use `useCallback` to prevent unnecessary re-renders
+- Only open windows are rendered (filtered by `isOpen`)
+- `topZRef` is a ref, not state, to avoid re-renders on z-index changes
+- Dynamic windows use timestamp-based IDs to ensure uniqueness
+</Card>
+
+## See Also
+
+- [Window Manager](/concepts/window-manager) - Window component implementation
+- [Terminal Commands](/concepts/terminal-commands) - Terminal integration
+- [Components: FolderIcon](/components/desktop/folder-icon) - Desktop folder icons
+- [Components: Dock](/components/desktop/dock) - Dock implementation

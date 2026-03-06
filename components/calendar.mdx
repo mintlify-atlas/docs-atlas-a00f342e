@@ -1,0 +1,317 @@
+---
+title: Calendar
+description: Professional calendar component with timeline filtering and MongoDB integration for dynamic events
+---
+
+The Calendar component displays project events in a visual timeline, supporting company-based filtering and MongoDB integration for dynamic event loading.
+
+## Overview
+
+Calendar provides a full-featured calendar interface with:
+- Monthly grid view with event visualization
+- Company/category filtering sidebar
+- Event detail panel with problem-solution-learning structure
+- MongoDB integration for NFQ events
+- Static events from `textos.ts`
+
+## Component Props
+
+<ParamField path="nfqEvents" type="NfqEventRaw[]" default="[]">
+  Optional array of NFQ events fetched from MongoDB. These are merged with static events from `textos.ts`.
+</ParamField>
+
+## Event Structure
+
+### CalEvent Interface
+
+```typescript app/textos.ts
+export interface CalEvent {
+  id: string;
+  title: string;
+  category: CalCategory;
+  problema: string;
+  solucion: string;
+  aprendizaje: string;
+  start: Date;
+  end?: Date;
+  color: string;
+}
+```
+
+<ParamField path="id" type="string" required>
+  Unique identifier for the event
+</ParamField>
+
+<ParamField path="title" type="string" required>
+  Event title (e.g., "Prácticas — Everis")
+</ParamField>
+
+<ParamField path="category" type="CalCategory" required>
+  Event category: `"everis"`, `"inetum"`, `"nfq"`, or `"personal"`
+</ParamField>
+
+<ParamField path="problema" type="string" required>
+  Description of the problem or challenge faced
+</ParamField>
+
+<ParamField path="solucion" type="string" required>
+  Description of the solution implemented
+</ParamField>
+
+<ParamField path="aprendizaje" type="string" required>
+  Key learning or takeaway from the experience
+</ParamField>
+
+<ParamField path="start" type="Date" required>
+  Event start date
+</ParamField>
+
+<ParamField path="end" type="Date">
+  Optional end date. If omitted or year >= 2099, marked as "Actualidad" (ongoing)
+</ParamField>
+
+<ParamField path="color" type="string" required>
+  Hex color code for visual identification (e.g., `"#07f1b7"`)
+</ParamField>
+
+## MongoDB Integration
+
+### Database Setup
+
+Configure MongoDB connection in `.env`:
+
+```bash .env
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/
+MONGODB_DB=portafolio
+MONGODB_COLLECTION_NFQ=nfq
+```
+
+### getNfqEvents Function
+
+The `getNfqEvents()` function fetches NFQ events from MongoDB:
+
+```typescript app/lib/mongodb.server.ts
+export interface NfqEventRaw {
+  id: string;
+  title: string;
+  category: "nfq";
+  problema: string;
+  solucion: string;
+  aprendizaje: string;
+  start: string; // ISO string
+  color: string;
+}
+
+export async function getNfqEvents(): Promise<NfqEventRaw[]> {
+  const client = await getClient();
+  const db = process.env.MONGODB_DB ?? "portafolio";
+  const col = process.env.MONGODB_COLLECTION_NFQ ?? "nfq";
+  const docs = await client
+    .db(db)
+    .collection(col)
+    .find({})
+    .sort({ fecha: 1 })
+    .toArray();
+
+  return docs.map((doc) => ({
+    id: doc._id.toString(),
+    title: doc.titulo as string,
+    category: "nfq" as const,
+    problema: doc.problema as string,
+    solucion: doc.solucion as string,
+    aprendizaje: doc.aprendizaje as string,
+    start: new Date(doc.fecha as string | Date).toISOString(),
+    color: "#c084fc",
+  }));
+}
+```
+
+### MongoDB Document Schema
+
+Expected document structure in MongoDB:
+
+```json
+{
+  "_id": ObjectId("..."),
+  "titulo": "Automatización Francia",
+  "fecha": ISODate("2025-11-01T00:00:00Z"),
+  "problema": "Cálculos manuales de NAV...",
+  "solucion": "Sistema automatizado con Python...",
+  "aprendizaje": "Importancia de validaciones automáticas..."
+}
+```
+
+### Usage in Route Loader
+
+```typescript app/routes/_index.tsx
+import { getNfqEvents } from "~/lib/mongodb.server";
+
+export async function loader() {
+  const nfqEvents = await getNfqEvents();
+  return { nfqEvents };
+}
+
+export default function Index() {
+  const { nfqEvents } = useLoaderData<typeof loader>();
+  return <Calendar nfqEvents={nfqEvents} />;
+}
+```
+
+## Adding Static Events
+
+Static events are defined in `textos.ts`:
+
+```typescript app/textos.ts
+export const calendarEvents: CalEvent[] = [
+  {
+    id: "everis",
+    title: "Prácticas — Everis",
+    category: "everis",
+    problema: "Gestión manual de bajas de líneas móviles de Orange, proceso lento y propenso a errores.",
+    solucion: "Desarrollé un proceso automatizado que detectaba las bajas y ejecutaba las acciones necesarias sin intervención manual.",
+    aprendizaje: "Primera toma de contacto con entornos empresariales reales y automatización de procesos de negocio.",
+    start: new Date(2018, 2, 1),
+    end: new Date(2018, 5, 30),
+    color: "#07f1b7",
+  },
+  {
+    id: "optimus",
+    title: "Optimus Price — Inetum",
+    category: "inetum",
+    problema: "Los precios se fijaban sin un modelo cuantitativo claro, lo que generaba pérdidas de margen.",
+    solucion: "Construí pipelines de análisis y modelado de datos para identificar patrones de precio óptimos.",
+    aprendizaje: "Aprendí a estructurar proyectos de datos orientados a negocio y a comunicar insights a stakeholders no técnicos.",
+    start: new Date(2024, 9, 1),
+    end: new Date(2025, 6, 31),
+    color: "#818cf8",
+  },
+];
+```
+
+## Company Filtering
+
+### Company Configuration
+
+Companies are defined with their visual properties:
+
+```typescript app/textos.ts
+export const calendarCompanies: { 
+  key: CalCompany; 
+  label: string; 
+  color: string 
+}[] = [
+  { key: "everis", label: "Everis", color: "#07f1b7" },
+  { key: "inetum", label: "Inetum", color: "#818cf8" },
+  { key: "nfq",    label: "NFQ",    color: "#c084fc" },
+];
+```
+
+### Filtering Behavior
+
+The calendar implements two filtering mechanisms:
+
+1. **Toggle Category**: Show/hide events by clicking the colored dot
+2. **Jump to Company**: Navigate to latest project by clicking company name
+
+```typescript app/components/Calendar.tsx
+function toggleCategory(cat: Category) {
+  setActiveCategories((prev) => {
+    const next = new Set(prev);
+    if (next.has(cat)) next.delete(cat);
+    else next.add(cat);
+    return next;
+  });
+}
+
+function goToCompany(company: Company) {
+  const companyEvents = EVENTS.filter((e) => e.category === company);
+  if (companyEvents.length === 0) return;
+  const latest = companyEvents.reduce((max, e) =>
+    e.start > max.start ? e : max
+  );
+  setCurrentMonth(new Date(latest.start.getFullYear(), latest.start.getMonth(), 1));
+  setSelectedDay(new Date(latest.start));
+}
+```
+
+## Features
+
+### Event Merging
+
+Static and MongoDB events are merged automatically:
+
+```typescript app/components/Calendar.tsx
+const EVENTS: CalEvent[] = useMemo(() => {
+  const staticNonNfq = calendarEvents.filter((e) => e.category !== "nfq");
+  const mongoNfq: CalEvent[] = nfqEvents.map((e) => ({
+    ...e,
+    start: new Date(e.start),
+  }));
+  return [...staticNonNfq, ...mongoNfq];
+}, [nfqEvents]);
+```
+
+### Day Selection
+
+Clicking a day shows events in the detail panel:
+
+- Event title and period
+- Color-coded badges
+- "En curso" badge for ongoing projects
+- Problema/Solución/Aprendizaje sections
+
+### Visual Indicators
+
+- **Red circle**: Current day
+- **Event dots**: Days with events (colored by category)
+- **White text**: Days with events in visible categories
+- **Gray text**: Empty days
+
+## Styling
+
+The calendar uses macOS-inspired dark theme:
+
+- Background: `#1a1a1c` (main), `#111113` (sidebar)
+- Borders: `border-white/[0.06]`
+- Hover states: `hover:bg-white/8`
+- Event colors: Company-specific hex codes
+
+## Example Usage
+
+```tsx
+import Calendar from "~/components/Calendar";
+import { getNfqEvents } from "~/lib/mongodb.server";
+
+export async function loader() {
+  const nfqEvents = await getNfqEvents();
+  return { nfqEvents };
+}
+
+export default function CalendarPage() {
+  const { nfqEvents } = useLoaderData<typeof loader>();
+  
+  return (
+    <div className="h-screen">
+      <Calendar nfqEvents={nfqEvents} />
+    </div>
+  );
+}
+```
+
+## Real Event Example
+
+From `textos.ts`:
+
+```typescript
+{
+  id: "Incorporacion_NFQ",
+  title: "Incorporación a NFQ - New Joiner",
+  category: "nfq",
+  problema: "Inicio de una nueva etapa profesional con el reto de adaptarme a una nueva empresa, conocer la cultura organizacional, los procesos internos y establecer relaciones con el equipo.",
+  solucion: "La empresa organizó un onboarding en una casa rural con otros compañeros para facilitar la interacción y el conocimiento del equipo.",
+  aprendizaje: "La experiencia permitió entender la importancia de la comunicación y la confianza para colaborar eficazmente en proyectos técnicos.",
+  start: new Date(2025, 9, 27),
+  end: new Date(2025, 10, 31),
+  color: "#c084fc",
+}
+```

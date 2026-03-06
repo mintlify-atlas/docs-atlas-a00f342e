@@ -1,0 +1,317 @@
+---
+title: Photo Gallery
+description: Grid-based photo browser with preview panel and PhotoViewer integration
+---
+
+The PhotoGallery component displays photos in a responsive grid with selection, preview, and integration with PhotoViewer for full-screen viewing.
+
+## Overview
+
+PhotoGallery provides:
+- 3-column responsive grid layout
+- Single-click selection with preview panel
+- Double-click to open in PhotoViewer
+- Empty state guidance
+- Blue highlight for selected photos
+
+## Component Props
+
+<ParamField path="onOpenPhoto" type="(foto: string) => void" required>
+  Callback function triggered when user double-clicks a photo or clicks "Abrir en visor". Receives the photo filename as parameter.
+</ParamField>
+
+## Configuration
+
+### Adding Photos
+
+1. Place image files in `public/fotos/` directory
+2. Add filenames to the `FOTOS` array:
+
+```typescript app/components/PhotoGallery.tsx
+const FOTOS: string[] = [
+  "img1.jpg",
+  "img2.jpg",
+  "img3.jpg",
+  "img4.jpg",
+  "img5.JPG",
+];
+```
+
+### Supported Formats
+
+Any format supported by HTML `<img>` tag:
+- `.jpg`, `.jpeg`
+- `.png`
+- `.gif`
+- `.webp`
+- `.svg`
+
+## Usage Example
+
+### Basic Implementation
+
+```tsx app/routes/photos.tsx
+import { useState } from "react";
+import PhotoGallery from "~/components/PhotoGallery";
+import PhotoViewer from "~/components/PhotoViewer";
+
+export default function PhotosPage() {
+  const [viewerPhoto, setViewerPhoto] = useState<string | null>(null);
+
+  return (
+    <div className="h-screen">
+      {viewerPhoto ? (
+        <PhotoViewer 
+          src={`/fotos/${viewerPhoto}`} 
+          name={viewerPhoto} 
+        />
+      ) : (
+        <PhotoGallery onOpenPhoto={setViewerPhoto} />
+      )}
+    </div>
+  );
+}
+```
+
+### With Window Management
+
+Integrated with window system (like in Portfolio Javier Navas):
+
+```tsx
+const [windows, setWindows] = useState<WindowState[]>([]);
+
+function openPhotoViewer(foto: string) {
+  const newWindow: WindowState = {
+    id: `viewer-${Date.now()}`,
+    type: "photoViewer",
+    title: foto,
+    x: 100,
+    y: 100,
+    width: 800,
+    height: 600,
+    zIndex: windows.length,
+    minimized: false,
+    photoSrc: `/fotos/${foto}`,
+  };
+  setWindows([...windows, newWindow]);
+}
+
+<PhotoGallery onOpenPhoto={openPhotoViewer} />
+```
+
+## Features
+
+### Selection State
+
+Single photo selection with visual feedback:
+
+```typescript app/components/PhotoGallery.tsx
+const [selected, setSelected] = useState<string | null>(null);
+
+<button
+  onClick={() => setSelected(foto)}
+  className={`border-2 transition-all ${
+    selected === foto
+      ? "border-blue-500"
+      : "border-transparent hover:border-white/20"
+  }`}
+>
+```
+
+### Opening Mechanism
+
+Two ways to open photos in PhotoViewer:
+
+1. **Double-click grid item**:
+   ```typescript
+   onDoubleClick={() => onOpenPhoto(foto)}
+   ```
+
+2. **Click "Abrir en visor" button** in preview panel
+
+### Empty State
+
+When `FOTOS.length === 0`, displays helpful guidance:
+
+```tsx
+<div className="h-full flex flex-col items-center justify-center bg-[#111] text-gray-500">
+  <span className="text-5xl">📷</span>
+  <p className="text-gray-400">No hay fotos todavía</p>
+  <p className="text-xs text-gray-600 text-center px-8">
+    Añade tus imágenes en <span className="text-gray-400">public/fotos/</span> y
+    regístralas en <span className="text-gray-400">PhotoGallery.tsx</span>
+  </p>
+</div>
+```
+
+## Layout Structure
+
+### Grid Container
+
+```tsx
+<div className="grid grid-cols-3 gap-2">
+  {FOTOS.map((foto) => (
+    <button
+      className="aspect-square overflow-hidden rounded-lg"
+    >
+      <img
+        src={`/fotos/${foto}`}
+        alt={foto}
+        className="w-full h-full object-cover"
+      />
+    </button>
+  ))}
+</div>
+```
+
+- **3 columns**: `grid-cols-3`
+- **Square aspect ratio**: `aspect-square`
+- **2px gap**: `gap-2`
+- **Rounded corners**: `rounded-lg`
+- **Cover fit**: `object-cover` ensures images fill grid cells
+
+### Preview Panel
+
+Appears on right side when photo is selected:
+
+```tsx
+{selected && (
+  <div className="w-56 shrink-0 border-l border-white/10 flex flex-col bg-[#1a1a1a]">
+    {/* Image preview */}
+    <div className="flex-1 flex items-center justify-center p-4">
+      <img
+        src={`/fotos/${selected}`}
+        className="max-w-full max-h-full object-contain rounded-lg shadow-xl"
+      />
+    </div>
+    
+    {/* Controls */}
+    <div className="p-3 border-t border-white/10 space-y-2">
+      <p className="text-xs text-gray-400 font-mono truncate">{selected}</p>
+      <button
+        onClick={() => onOpenPhoto(selected)}
+        className="w-full py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded"
+      >
+        Abrir en visor
+      </button>
+    </div>
+  </div>
+)}
+```
+
+## Integration with PhotoViewer
+
+### Flow
+
+1. User double-clicks photo in gallery
+2. `onOpenPhoto(foto)` callback fires with filename
+3. Parent component opens PhotoViewer with photo source
+4. PhotoViewer displays full-screen with zoom/pan controls
+
+### Data Flow
+
+```
+PhotoGallery
+  ↓ onOpenPhoto("img1.jpg")
+Parent Component
+  ↓ Opens PhotoViewer
+PhotoViewer
+  ↓ Loads /fotos/img1.jpg
+Full-screen view with controls
+```
+
+## Styling
+
+### Color Scheme
+
+- Background: `bg-[#111]` (dark)
+- Preview panel: `bg-[#1a1a1a]` (slightly lighter)
+- Selected border: `border-blue-500`
+- Hover border: `border-white/20`
+- Text: `text-gray-400`, `text-gray-600`
+
+### Responsive Design
+
+The component maintains 3 columns on all screen sizes. To make it responsive:
+
+```tsx
+<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+```
+
+## Example: Real Portfolio Implementation
+
+From the actual codebase:
+
+```typescript app/components/PhotoGallery.tsx
+const FOTOS: string[] = [
+  "img1.jpg",
+  "img2.jpg",
+  "img3.jpg",
+  "img4.jpg",
+  "img5.JPG",
+];
+
+export default function PhotoGallery({ onOpenPhoto }: PhotoGalleryProps) {
+  const [selected, setSelected] = useState<string | null>(null);
+
+  return (
+    <div className="h-full flex bg-[#111]">
+      <div className="flex-1 overflow-auto p-4">
+        <div className="grid grid-cols-3 gap-2">
+          {FOTOS.map((foto) => (
+            <button
+              key={foto}
+              onClick={() => setSelected(foto)}
+              onDoubleClick={() => onOpenPhoto(foto)}
+              className={`aspect-square overflow-hidden rounded-lg border-2 transition-all ${
+                selected === foto
+                  ? "border-blue-500"
+                  : "border-transparent hover:border-white/20"
+              }`}
+            >
+              <img
+                src={`/fotos/${foto}`}
+                alt={foto}
+                className="w-full h-full object-cover"
+              />
+            </button>
+          ))}
+        </div>
+        {selected && (
+          <p className="mt-3 text-center text-xs text-gray-600 font-mono">
+            Doble clic para abrir en el visor
+          </p>
+        )}
+      </div>
+
+      {selected && (
+        <div className="w-56 shrink-0 border-l border-white/10 flex flex-col bg-[#1a1a1a]">
+          <div className="flex-1 flex items-center justify-center p-4">
+            <img
+              src={`/fotos/${selected}`}
+              alt={selected}
+              className="max-w-full max-h-full object-contain rounded-lg shadow-xl"
+            />
+          </div>
+          <div className="p-3 border-t border-white/10 space-y-2">
+            <p className="text-xs text-gray-400 font-mono truncate">{selected}</p>
+            <button
+              onClick={() => onOpenPhoto(selected)}
+              className="w-full py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded font-mono transition-colors"
+            >
+              Abrir en visor
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Tips
+
+- Keep image file sizes reasonable (< 2MB) for fast loading
+- Use descriptive filenames for better organization
+- Consider lazy loading for galleries with many images
+- The preview panel is optional - remove `{selected && ...}` block if not needed

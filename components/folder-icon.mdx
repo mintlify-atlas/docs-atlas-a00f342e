@@ -1,0 +1,333 @@
+---
+title: Folder Icon
+description: Desktop-style folder icon with double-click to open functionality
+---
+
+The FolderIcon component renders a clickable desktop-style icon with emoji/text label, designed for macOS-inspired desktop layouts.
+
+## Overview
+
+FolderIcon provides:
+- Double-click to open behavior
+- Hover scale animation
+- Icon + label layout
+- macOS-style selection highlight
+- Desktop positioning support
+
+## Component Props
+
+<ParamField path="label" type="string" required>
+  Text label displayed below the icon (e.g., "Projects", "Photos", "Documents")
+</ParamField>
+
+<ParamField path="icon" type="string" required>
+  Emoji or character to display as the icon (e.g., "📁", "📷", "📄")
+</ParamField>
+
+<ParamField path="onOpen" type="() => void" required>
+  Callback function triggered when user double-clicks the icon
+</ParamField>
+
+## Basic Usage
+
+```tsx
+import FolderIcon from "~/components/FolderIcon";
+
+function Desktop() {
+  const openPhotos = () => {
+    // Open photos window/app
+    console.log("Opening photos...");
+  };
+
+  return (
+    <div className="h-screen bg-[url('/wallpaper.jpg')] p-4">
+      <FolderIcon 
+        label="Photos" 
+        icon="📷" 
+        onOpen={openPhotos} 
+      />
+    </div>
+  );
+}
+```
+
+## Desktop Layout
+
+### Grid Positioning
+
+Arrange multiple icons in a grid:
+
+```tsx
+<div className="grid grid-cols-6 gap-4 p-4">
+  <FolderIcon label="Projects" icon="📁" onOpen={() => openWindow('projects')} />
+  <FolderIcon label="Photos" icon="📷" onOpen={() => openWindow('photos')} />
+  <FolderIcon label="Calendar" icon="📅" onOpen={() => openWindow('calendar')} />
+  <FolderIcon label="Terminal" icon="💻" onOpen={() => openWindow('terminal')} />
+</div>
+```
+
+### Absolute Positioning
+
+Position icons freely on desktop:
+
+```tsx
+<div className="relative h-screen bg-[url('/wallpaper.jpg')]">
+  <div className="absolute" style={{ top: 20, left: 20 }}>
+    <FolderIcon label="Projects" icon="📁" onOpen={openProjects} />
+  </div>
+  
+  <div className="absolute" style={{ top: 20, left: 140 }}>
+    <FolderIcon label="Photos" icon="📷" onOpen={openPhotos} />
+  </div>
+  
+  <div className="absolute" style={{ top: 140, left: 20 }}>
+    <FolderIcon label="Calendar" icon="📅" onOpen={openCalendar} />
+  </div>
+</div>
+```
+
+## Component Implementation
+
+```tsx app/components/FolderIcon.tsx
+interface FolderIconProps {
+  label: string;
+  icon: string;
+  onOpen: () => void;
+}
+
+export default function FolderIcon({ label, icon, onOpen }: FolderIconProps) {
+  return (
+    <div
+      onDoubleClick={onOpen}
+      className="flex flex-col items-center gap-1.5 cursor-pointer select-none group w-20"
+    >
+      <div className="text-5xl drop-shadow-lg group-hover:scale-110 transition-transform duration-150">
+        {icon}
+      </div>
+      <span className="text-xs text-white text-center px-1.5 py-0.5 rounded drop-shadow-md group-hover:bg-blue-500/60 transition-colors">
+        {label}
+      </span>
+    </div>
+  );
+}
+```
+
+## Features
+
+### Double-Click to Open
+
+Uses native `onDoubleClick` event:
+
+```tsx
+<div onDoubleClick={onOpen}>
+```
+
+This mimics standard desktop behavior where folders/apps require double-click to open.
+
+### Hover Effects
+
+Two hover animations:
+
+1. **Icon scale**: `group-hover:scale-110` (10% larger on hover)
+2. **Label highlight**: `group-hover:bg-blue-500/60` (blue background)
+
+```tsx
+<div className="group">
+  <div className="group-hover:scale-110 transition-transform">
+    {icon}
+  </div>
+  <span className="group-hover:bg-blue-500/60 transition-colors">
+    {label}
+  </span>
+</div>
+```
+
+### Text Selection Prevention
+
+`select-none` class prevents text selection during double-click:
+
+```tsx
+className="select-none"
+```
+
+## Styling Breakdown
+
+### Layout
+
+- `flex flex-col`: Vertical stack (icon above label)
+- `items-center`: Center-align horizontally
+- `gap-1.5`: 6px spacing between icon and label
+- `w-20`: Fixed 80px width for consistent icon sizing
+
+### Icon Styling
+
+- `text-5xl`: Large emoji size (48px)
+- `drop-shadow-lg`: Shadow for depth
+- `group-hover:scale-110`: Scale on hover
+- `transition-transform duration-150`: Smooth animation
+
+### Label Styling
+
+- `text-xs`: Small text (12px)
+- `text-white`: White color (contrast on desktop backgrounds)
+- `text-center`: Centered text
+- `px-1.5 py-0.5`: Padding for background
+- `rounded`: Rounded corners
+- `drop-shadow-md`: Text shadow for readability
+- `group-hover:bg-blue-500/60`: Blue highlight on hover (60% opacity)
+
+## Icon Customization
+
+### Using Emojis
+
+```tsx
+<FolderIcon label="Projects" icon="📁" onOpen={onOpen} />
+<FolderIcon label="Photos" icon="📷" onOpen={onOpen} />
+<FolderIcon label="Music" icon="🎵" onOpen={onOpen} />
+<FolderIcon label="Documents" icon="📄" onOpen={onOpen} />
+```
+
+### Using SVG/Images
+
+Modify component to accept image paths:
+
+```tsx
+interface FolderIconProps {
+  label: string;
+  icon: string | React.ReactNode;
+  onOpen: () => void;
+}
+
+export default function FolderIcon({ label, icon, onOpen }: FolderIconProps) {
+  return (
+    <div onDoubleClick={onOpen} className="...">
+      <div className="text-5xl ...">
+        {typeof icon === 'string' && icon.startsWith('/') ? (
+          <img src={icon} alt={label} className="w-12 h-12" />
+        ) : (
+          icon
+        )}
+      </div>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+// Usage
+<FolderIcon label="App" icon="/icons/app.svg" onOpen={onOpen} />
+```
+
+## Advanced: Selection State
+
+Add selection state for single-click selection:
+
+```tsx
+interface FolderIconProps {
+  label: string;
+  icon: string;
+  selected?: boolean;
+  onClick?: () => void;
+  onOpen: () => void;
+}
+
+export default function FolderIcon({ 
+  label, 
+  icon, 
+  selected = false,
+  onClick,
+  onOpen 
+}: FolderIconProps) {
+  return (
+    <div
+      onClick={onClick}
+      onDoubleClick={onOpen}
+      className={`flex flex-col items-center gap-1.5 cursor-pointer select-none group w-20 ${
+        selected ? 'bg-blue-500/20 rounded-lg p-2' : ''
+      }`}
+    >
+      <div className="text-5xl drop-shadow-lg group-hover:scale-110 transition-transform duration-150">
+        {icon}
+      </div>
+      <span className={`text-xs text-center px-1.5 py-0.5 rounded drop-shadow-md transition-colors ${
+        selected 
+          ? 'bg-blue-500 text-white' 
+          : 'text-white group-hover:bg-blue-500/60'
+      }`}>
+        {label}
+      </span>
+    </div>
+  );
+}
+```
+
+Usage with selection:
+
+```tsx
+const [selected, setSelected] = useState<string | null>(null);
+
+<FolderIcon 
+  label="Photos" 
+  icon="📷" 
+  selected={selected === 'photos'}
+  onClick={() => setSelected('photos')}
+  onOpen={() => openWindow('photos')} 
+/>
+```
+
+## Integration Example: Portfolio Desktop
+
+From the actual codebase:
+
+```tsx
+const desktop = [
+  { id: 'calendar', label: 'Calendario', icon: '📅', x: 20, y: 20 },
+  { id: 'photos', label: 'Fotos', icon: '📷', x: 20, y: 140 },
+  { id: 'terminal', label: 'Terminal', icon: '💻', x: 20, y: 260 },
+];
+
+return (
+  <div className="relative h-screen bg-[url('/wallpaper.jpg')] bg-cover">
+    {desktop.map((item) => (
+      <div 
+        key={item.id}
+        className="absolute"
+        style={{ top: item.y, left: item.x }}
+      >
+        <FolderIcon
+          label={item.label}
+          icon={item.icon}
+          onOpen={() => openWindow(item.id)}
+        />
+      </div>
+    ))}
+  </div>
+);
+```
+
+## Accessibility Considerations
+
+Enhance accessibility:
+
+```tsx
+<div
+  role="button"
+  tabIndex={0}
+  aria-label={`Open ${label}`}
+  onDoubleClick={onOpen}
+  onKeyDown={(e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onOpen();
+    }
+  }}
+  className="..."
+>
+```
+
+## Tips
+
+- Use consistent icon size (text-5xl) for visual harmony
+- Keep labels short (1-2 words) for better readability
+- Add `cursor-pointer` to indicate interactivity
+- Consider adding drag-and-drop for repositioning
+- Use `drop-shadow` for better contrast on varied backgrounds

@@ -1,0 +1,175 @@
+---
+title: Docker Deployment
+description: Deploy the Portfolio Javier Navas application using Docker containers
+---
+
+The application includes a production-ready multi-stage Dockerfile optimized for React Router 7 applications.
+
+## Dockerfile Configuration
+
+The Dockerfile uses a multi-stage build process to minimize the final image size:
+
+```dockerfile
+FROM node:20-alpine AS development-dependencies-env
+COPY . /app
+WORKDIR /app
+RUN npm ci
+
+FROM node:20-alpine AS production-dependencies-env
+COPY ./package.json package-lock.json /app/
+WORKDIR /app
+RUN npm ci --omit=dev
+
+FROM node:20-alpine AS build-env
+COPY . /app/
+COPY --from=development-dependencies-env /app/node_modules /app/node_modules
+WORKDIR /app
+RUN npm run build
+
+FROM node:20-alpine
+COPY ./package.json package-lock.json /app/
+COPY --from=production-dependencies-env /app/node_modules /app/node_modules
+COPY --from=build-env /app/build /app/build
+WORKDIR /app
+CMD ["npm", "run", "start"]
+```
+
+### Build Stages Explained
+
+1. **development-dependencies-env**: Installs all dependencies including dev dependencies
+2. **production-dependencies-env**: Installs only production dependencies
+3. **build-env**: Builds the React Router application
+4. **Final stage**: Creates the minimal runtime image with only production dependencies and build output
+
+## Building the Docker Image
+
+<Steps>
+
+<Step title="Build the image">
+Build the Docker image from the project root:
+
+```bash
+docker build -t portfolio-javier-navas .
+```
+</Step>
+
+<Step title="Run the container">
+Run the container with port mapping:
+
+```bash
+docker run -p 3000:3000 portfolio-javier-navas
+```
+
+The application will be available at `http://localhost:3000`.
+</Step>
+
+<Step title="Run with environment variables">
+If your application requires MongoDB, pass environment variables:
+
+```bash
+docker run -p 3000:3000 \
+  -e MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net/?retryWrites=true&w=majority" \
+  -e MONGODB_DB="portafolio" \
+  -e MONGODB_COLLECTION_NFQ="nfq" \
+  portfolio-javier-navas
+```
+</Step>
+
+</Steps>
+
+<Warning>
+Never hardcode sensitive credentials in the Dockerfile. Always pass them as environment variables at runtime.
+</Warning>
+
+## Supported Deployment Platforms
+
+The containerized application can be deployed to any platform that supports Docker:
+
+<CodeGroup>
+
+```bash AWS ECS
+# Build and push to ECR
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com
+
+docker build -t portfolio-javier-navas .
+docker tag portfolio-javier-navas:latest <account-id>.dkr.ecr.us-east-1.amazonaws.com/portfolio-javier-navas:latest
+docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/portfolio-javier-navas:latest
+```
+
+```bash Google Cloud Run
+# Build and deploy to Cloud Run
+gcloud builds submit --tag gcr.io/<project-id>/portfolio-javier-navas
+
+gcloud run deploy portfolio-javier-navas \
+  --image gcr.io/<project-id>/portfolio-javier-navas \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated
+```
+
+```bash Azure Container Apps
+# Build and push to Azure Container Registry
+az acr build --registry <registry-name> \
+  --image portfolio-javier-navas:latest .
+
+az containerapp create \
+  --name portfolio-javier-navas \
+  --resource-group <resource-group> \
+  --image <registry-name>.azurecr.io/portfolio-javier-navas:latest
+```
+
+```bash Fly.io
+# Deploy to Fly.io
+fly launch
+fly deploy
+```
+
+```bash Railway
+# Railway automatically detects Dockerfile
+# Connect your repository and Railway will build and deploy
+railway up
+```
+
+```bash Digital Ocean
+# Push to Digital Ocean Container Registry
+docker tag portfolio-javier-navas:latest registry.digitalocean.com/<registry-name>/portfolio-javier-navas:latest
+docker push registry.digitalocean.com/<registry-name>/portfolio-javier-navas:latest
+```
+
+</CodeGroup>
+
+## Port Configuration
+
+The application runs on port **3000** by default. Make sure to:
+
+- Expose port 3000 in your container orchestration platform
+- Configure health checks on `http://localhost:3000`
+- Map the container port to your desired host port
+
+## Build Output Structure
+
+After building, the application contains:
+
+```
+├── package.json
+├── package-lock.json
+├── build/
+│   ├── client/    # Static assets (JS, CSS, images)
+│   └── server/    # Server-side code (index.js)
+```
+
+The Docker container runs `npm run start` which executes:
+```json
+"start": "react-router-serve ./build/server/index.js"
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="MongoDB Setup" icon="database" href="/deployment/mongodb-setup">
+    Configure MongoDB connection for production
+  </Card>
+  <Card title="Environment Variables" icon="key" href="/deployment/environment-variables">
+    Set up required environment variables
+  </Card>
+</CardGroup>

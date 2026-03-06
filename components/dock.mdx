@@ -1,0 +1,441 @@
+---
+title: 'Dock'
+description: 'macOS-style application launcher bar with hover effects and active indicators'
+icon: 'bars'
+---
+
+## Overview
+
+The `Dock` component is a macOS-inspired application launcher that sits at the bottom of the screen. It displays application icons, indicates which apps are open, and provides hover animations for a polished, interactive experience.
+
+## Features
+
+- **Fixed Positioning**: Always visible at bottom center of screen
+- **Active Indicators**: Small dots show which applications are open
+- **Hover Effects**: Icons scale up smoothly on hover
+- **Glassmorphism**: Translucent background with backdrop blur
+- **Separators**: Optional dividers between app groups
+- **Click Handlers**: Each icon triggers its corresponding action
+
+## Props
+
+<ParamField path="items" type="DockItem[]" required>
+  Array of application items to display in the dock
+</ParamField>
+
+## Types
+
+### DockItem
+
+```typescript
+interface DockItem {
+  id: string;           // Unique identifier for the application
+  icon: string;         // Emoji or icon to display
+  label: string;        // Tooltip/accessibility label
+  onClick: () => void;  // Function called when icon is clicked
+  isOpen?: boolean;     // Whether the application window is currently open
+}
+```
+
+### DockProps
+
+```typescript
+interface DockProps {
+  items: DockItem[];
+}
+```
+
+## Usage Examples
+
+<CodeGroup>
+
+```tsx Basic Dock
+import Dock from "./components/Dock";
+
+function App() {
+  const items = [
+    {
+      id: "terminal",
+      icon: "🖥️",
+      label: "Terminal",
+      onClick: () => console.log("Open terminal"),
+      isOpen: true,
+    },
+    {
+      id: "projects",
+      icon: "📁",
+      label: "Projects",
+      onClick: () => console.log("Open projects"),
+      isOpen: false,
+    },
+  ];
+
+  return <Dock items={items} />;
+}
+```
+
+```tsx With State Management
+import { useState } from "react";
+import Dock from "./components/Dock";
+
+function App() {
+  const [openApps, setOpenApps] = useState(new Set(["terminal"]));
+
+  const toggleApp = (id: string) => {
+    setOpenApps((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const items = [
+    {
+      id: "terminal",
+      icon: "🖥️",
+      label: "Terminal",
+      onClick: () => toggleApp("terminal"),
+      isOpen: openApps.has("terminal"),
+    },
+    {
+      id: "projects",
+      icon: "📁",
+      label: "Projects",
+      onClick: () => toggleApp("projects"),
+      isOpen: openApps.has("projects"),
+    },
+  ];
+
+  return <Dock items={items} />;
+}
+```
+
+```tsx From Desktop Component
+// Desktop.tsx
+const dockItems = [
+  { 
+    id: "terminal", 
+    icon: "🖥️", 
+    label: "Terminal", 
+    onClick: () => openWindow("terminal"), 
+    isOpen: windows.find((w) => w.id === "terminal")?.isOpen 
+  },
+  { 
+    id: "proyectos", 
+    icon: "📁", 
+    label: "Proyectos", 
+    onClick: () => openWindow("proyectos"), 
+    isOpen: windows.find((w) => w.id === "proyectos")?.isOpen 
+  },
+  { 
+    id: "experiencia", 
+    icon: "💼", 
+    label: "Experiencia", 
+    onClick: () => openWindow("experiencia"), 
+    isOpen: windows.find((w) => w.id === "experiencia")?.isOpen 
+  },
+  { 
+    id: "estudios", 
+    icon: "🎓", 
+    label: "Estudios", 
+    onClick: () => openWindow("estudios"), 
+    isOpen: windows.find((w) => w.id === "estudios")?.isOpen 
+  },
+  { 
+    id: "fotos", 
+    icon: "📷", 
+    label: "Fotos", 
+    onClick: () => openWindow("fotos"), 
+    isOpen: windows.find((w) => w.id === "fotos")?.isOpen 
+  },
+  { 
+    id: "calendario", 
+    icon: "📅", 
+    label: "Calendario", 
+    onClick: () => openWindow("calendario"), 
+    isOpen: windows.find((w) => w.id === "calendario")?.isOpen 
+  },
+];
+
+return <Dock items={dockItems} />;
+```
+
+</CodeGroup>
+
+## Structure
+
+The dock has a fixed container with centered glassmorphic styling:
+
+```tsx
+<div className="fixed bottom-1 left-1/2 -translate-x-1/2 z-[9999]">
+  <div className="
+    flex items-end gap-0.5 
+    px-2 py-1 
+    bg-white/10              /* Semi-transparent white */
+    backdrop-blur-2xl        /* Strong blur effect */
+    border border-white/20   /* Subtle border */
+    rounded-xl               /* Rounded corners */
+    shadow-2xl shadow-black/50 /* Deep shadow */
+  ">
+    {/* Icons */}
+  </div>
+</div>
+```
+
+## Icon Rendering
+
+Each item renders as a button with icon and optional indicator:
+
+```tsx
+{items.map((item) => (
+  <div key={item.id} className="flex flex-col items-center">
+    <button
+      onClick={item.onClick}
+      title={item.label}
+      className="flex flex-col items-center gap-0.5 group px-1"
+    >
+      {/* Icon with hover animation */}
+      <span className="
+        text-2xl 
+        drop-shadow-lg 
+        group-hover:scale-125      /* Enlarge on hover */
+        transition-transform 
+        duration-200 
+        origin-bottom              /* Scale from bottom */
+        inline-block
+      ">
+        {item.icon}
+      </span>
+      
+      {/* Active indicator */}
+      {item.isOpen && (
+        <span className="w-1 h-1 rounded-full bg-white/70" />
+      )}
+      {!item.isOpen && <span className="w-0.5 h-0.5" />}  {/* Spacing */}
+    </button>
+  </div>
+))}
+```
+
+## Active Indicators
+
+Small dots below icons show which apps are open:
+
+<CodeGroup>
+
+```tsx Open Application
+{item.isOpen && (
+  <span className="w-1 h-1 rounded-full bg-white/70" />
+)}
+```
+
+```tsx Closed Application
+{!item.isOpen && (
+  <span className="w-0.5 h-0.5" />  /* Invisible spacer for alignment */
+)}
+```
+
+</CodeGroup>
+
+This ensures consistent spacing whether an app is open or closed.
+
+## Hover Effects
+
+Icons scale up smoothly when hovered:
+
+```css
+.group-hover:scale-125      /* 125% size on hover */
+transition-transform         /* Smooth animation */
+duration-200                 /* 200ms duration */
+origin-bottom                /* Scale from bottom (macOS behavior) */
+```
+
+The `group` class allows hovering the button to affect the icon.
+
+## Separators
+
+Optional dividers can be added between app groups:
+
+```tsx
+{items.map((item, i) => (
+  <div key={item.id}>
+    {/* Add separator before last item */}
+    {i > 0 && i === items.length - 1 && (
+      <div className="w-px h-5 bg-white/20 mx-1 self-center" />
+    )}
+    {/* Icon button */}
+  </div>
+))}
+```
+
+This example adds a divider before the last item (commonly used for trash/settings).
+
+## Positioning
+
+The dock uses fixed positioning to stay at the bottom:
+
+```tsx
+className="
+  fixed                  /* Fixed viewport positioning */
+  bottom-1               /* 4px from bottom */
+  left-1/2               /* Center horizontally */
+  -translate-x-1/2       /* Offset by half width */
+  z-[9999]               /* Above everything except overlays */
+"
+```
+
+This ensures the dock is always visible and centered.
+
+## Z-Index Management
+
+The dock uses `z-[9999]` to stay above:
+- Desktop background
+- Window components (typically z-index 10-100)
+- Folder icons
+
+Only full-screen overlays or modals should exceed this z-index.
+
+## Glassmorphism Effect
+
+The translucent glass effect is achieved with:
+
+```css
+bg-white/10              /* 10% white opacity */
+backdrop-blur-2xl        /* Strong blur on content behind */
+border border-white/20   /* Subtle outline */
+shadow-2xl shadow-black/50  /* Depth and elevation */
+```
+
+This creates the characteristic macOS dock appearance.
+
+## Accessibility
+
+Each icon includes accessibility features:
+
+```tsx
+<button
+  onClick={item.onClick}
+  title={item.label}      // Tooltip on hover
+  className="..."         // Clear clickable area
+>
+```
+
+### Recommendations
+
+For full accessibility, consider adding:
+
+```tsx
+<button
+  onClick={item.onClick}
+  title={item.label}
+  aria-label={item.label}
+  aria-pressed={item.isOpen}
+>
+```
+
+## Responsive Design
+
+The dock automatically adapts to screen width:
+
+- **Desktop**: Full-size icons with hover effects
+- **Tablet**: Same layout, touch-friendly tap targets
+- **Mobile**: Slightly reduced icon size (via emoji scaling)
+
+The `gap-0.5` and `px-1` spacing ensures icons don't overflow on small screens.
+
+## Customization
+
+### Icon Size
+
+Change icon size by modifying `text-2xl`:
+
+```tsx
+<span className="text-xl">     {/* Smaller */}
+<span className="text-2xl">    {/* Default */}
+<span className="text-3xl">    {/* Larger */}
+```
+
+### Hover Scale
+
+Adjust hover magnification:
+
+```tsx
+group-hover:scale-110   /* Subtle */
+group-hover:scale-125   /* Default */
+group-hover:scale-150   /* Dramatic */
+```
+
+### Position
+
+Move dock to different edges:
+
+```tsx
+{/* Bottom center (default) */}
+<div className="fixed bottom-1 left-1/2 -translate-x-1/2">
+
+{/* Bottom left */}
+<div className="fixed bottom-1 left-1">
+
+{/* Bottom right */}
+<div className="fixed bottom-1 right-1">
+
+{/* Top center */}
+<div className="fixed top-1 left-1/2 -translate-x-1/2">
+```
+
+## Integration with Desktop
+
+The Dock is typically rendered at the root level of Desktop:
+
+```tsx
+// Desktop.tsx
+return (
+  <div className="w-screen h-screen overflow-hidden relative">
+    <MenuBar />
+    
+    <div className="absolute top-7 left-0 right-0 bottom-20 overflow-hidden">
+      {/* Windows and icons */}
+    </div>
+
+    <Dock items={dockItems} />
+  </div>
+);
+```
+
+The Desktop reserves bottom space (`bottom-20` = 80px) for the Dock.
+
+## Performance Considerations
+
+### Memoization
+
+If dock items change frequently, consider memoizing:
+
+```tsx
+import { useMemo } from "react";
+
+const dockItems = useMemo(() => [
+  { id: "terminal", icon: "🖥️", label: "Terminal", onClick: () => openWindow("terminal"), isOpen: terminalOpen },
+  // ...
+], [terminalOpen, projectsOpen, /* other dependencies */]);
+```
+
+### Event Handlers
+
+Use stable callback references:
+
+```tsx
+const openWindow = useCallback((id: string) => {
+  // Open logic
+}, []);
+```
+
+## Related Components
+
+- [Desktop](/components/desktop) - Parent container that manages dock items
+- [Window](/components/window) - Applications launched by dock icons
+- [MenuBar](/components/menubar) - Top bar counterpart to the dock
+- [Terminal](/components/terminal) - Primary application in the dock

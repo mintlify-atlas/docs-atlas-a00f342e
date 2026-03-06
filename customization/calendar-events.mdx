@@ -1,0 +1,442 @@
+---
+title: Calendar Events
+description: Add and manage calendar events from local data and MongoDB
+icon: calendar
+---
+
+## Overview
+
+The portfolio includes an interactive macOS-style Calendar app that displays important career milestones. Events can come from two sources:
+
+1. **Local events** - Defined in `app/textos.ts`
+2. **MongoDB events** - Fetched from a MongoDB collection (NFQ category only)
+
+<Info>
+Local events are for static milestones (internships, major projects). MongoDB events are ideal for ongoing updates, especially for current employers.
+</Info>
+
+## CalEvent Interface
+
+All calendar events follow this TypeScript interface:
+
+```typescript app/textos.ts
+export interface CalEvent {
+  id: string;          // Unique identifier
+  title: string;       // Event title
+  category: CalCategory; // "everis" | "inetum" | "nfq" | "personal"
+  problema: string;    // Problem/challenge faced
+  solucion: string;    // Solution implemented
+  aprendizaje: string; // Key learning/takeaway
+  start: Date;         // Start date
+  end?: Date;          // Optional end date
+  color: string;       // Hex color for the event
+}
+```
+
+## Event Categories
+
+Categories organize events by company or type:
+
+```typescript app/textos.ts
+export type CalCompany = "everis" | "inetum" | "nfq";
+export type CalCategory = CalCompany | "personal";
+
+export const calendarCompanies: { key: CalCompany; label: string; color: string }[] = [
+  { key: "everis", label: "Everis", color: "#07f1b7" },
+  { key: "inetum", label: "Inetum", color: "#818cf8" },
+  { key: "nfq",    label: "NFQ",    color: "#c084fc" },
+];
+```
+
+### Adding a New Company Category
+
+<Steps>
+  <Step title="Update the type definition">
+    ```typescript app/textos.ts
+    export type CalCompany = "everis" | "inetum" | "nfq" | "mycompany";
+    ```
+  </Step>
+
+  <Step title="Add to calendarCompanies array">
+    ```typescript app/textos.ts
+    export const calendarCompanies = [
+      { key: "everis", label: "Everis", color: "#07f1b7" },
+      { key: "inetum", label: "Inetum", color: "#818cf8" },
+      { key: "nfq",    label: "NFQ",    color: "#c084fc" },
+      { key: "mycompany", label: "My Company", color: "#ff6b6b" },
+    ];
+    ```
+  </Step>
+
+  <Step title="Choose a color">
+    Pick a distinct hex color that stands out. The color is used for:
+    - Event indicators in the calendar grid
+    - Category filter buttons in the sidebar
+    - Event detail panels
+  </Step>
+</Steps>
+
+## Local Calendar Events
+
+Local events are defined in the `calendarEvents` array in `app/textos.ts`.
+
+### Real Examples from Source
+
+```typescript app/textos.ts
+export const calendarEvents: CalEvent[] = [
+  {
+    id: "everis",
+    title: "Prácticas — Everis",
+    category: "everis",
+    problema: "Gestión manual de bajas de líneas móviles de Orange, proceso lento y propenso a errores.",
+    solucion: "Desarrollé un proceso automatizado que detectaba las bajas y ejecutaba las acciones necesarias sin intervención manual.",
+    aprendizaje: "Primera toma de contacto con entornos empresariales reales y automatización de procesos de negocio.",
+    start: new Date(2018, 2, 1),  // March 1, 2018
+    end: new Date(2018, 5, 30),   // June 30, 2018
+    color: "#07f1b7",
+  },
+  {
+    id: "optimus",
+    title: "Optimus Price — Inetum",
+    category: "inetum",
+    problema: "Los precios se fijaban sin un modelo cuantitativo claro, lo que generaba pérdidas de margen.",
+    solucion: "Construí pipelines de análisis y modelado de datos para identificar patrones de precio óptimos.",
+    aprendizaje: "Aprendí a estructurar proyectos de datos orientados a negocio y a comunicar insights a stakeholders no técnicos.",
+    start: new Date(2024, 9, 1),   // October 1, 2024
+    end: new Date(2025, 6, 31),    // July 31, 2025
+    color: "#818cf8",
+  },
+  {
+    id: "Incorporacion_NFQ",
+    title: "Incorporación a NFQ - New Joiner",
+    category: "nfq",
+    problema: "Inicio de una nueva etapa profesional con el reto de adaptarme a una nueva empresa, conocer la cultura organizacional, los procesos internos y establecer relaciones con el equipo.",
+    solucion: "La empresa organizó un onboarding en una casa rural con otros compañeros para facilitar la interacción y el conocimiento del equipo.",
+    aprendizaje: "La experiencia permitió entender la importancia de la comunicación y la confianza para colaborar eficazmente en proyectos técnicos.",
+    start: new Date(2025, 9, 27),  // October 27, 2025
+    end: new Date(2025, 10, 31),   // November 31, 2025
+    color: "#c084fc",
+  },
+];
+```
+
+<Note>
+**JavaScript Date months are 0-indexed**: January = 0, February = 1, ..., December = 11
+</Note>
+
+### Adding a Local Event
+
+<CodeGroup>
+```typescript Before
+export const calendarEvents: CalEvent[] = [
+  {
+    id: "optimus",
+    title: "Optimus Price — Inetum",
+    category: "inetum",
+    problema: "Los precios se fijaban sin un modelo cuantitativo claro...",
+    solucion: "Construí pipelines de análisis y modelado de datos...",
+    aprendizaje: "Aprendí a estructurar proyectos de datos...",
+    start: new Date(2024, 9, 1),
+    end: new Date(2025, 6, 31),
+    color: "#818cf8",
+  },
+];
+```
+
+```typescript After
+export const calendarEvents: CalEvent[] = [
+  {
+    id: "optimus",
+    title: "Optimus Price — Inetum",
+    category: "inetum",
+    problema: "Los precios se fijaban sin un modelo cuantitativo claro...",
+    solucion: "Construí pipelines de análisis y modelado de datos...",
+    aprendizaje: "Aprendí a estructurar proyectos de datos...",
+    start: new Date(2024, 9, 1),
+    end: new Date(2025, 6, 31),
+    color: "#818cf8",
+  },
+  {
+    id: "personal-project",
+    title: "Launch of Personal SaaS",
+    category: "personal",
+    problema: "Wanted to build a sustainable side project that solves a real problem for developers.",
+    solucion: "Developed a SaaS platform for automated code review and deployed it to production.",
+    aprendizaje: "Learned about customer development, pricing strategies, and running a product solo.",
+    start: new Date(2025, 0, 15),  // January 15, 2025
+    end: new Date(2025, 3, 1),     // April 1, 2025
+    color: "#34d399",
+  },
+];
+```
+</CodeGroup>
+
+## MongoDB Calendar Events
+
+For the **NFQ category**, events can be dynamically loaded from MongoDB. This is useful for adding events without redeploying the application.
+
+### MongoDB Configuration
+
+Configure your MongoDB connection in `.env`:
+
+```bash .env
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/
+MONGODB_DB=portafolio
+MONGODB_COLLECTION_NFQ=nfq
+```
+
+### MongoDB Document Structure
+
+Each MongoDB document should follow this structure:
+
+```json
+{
+  "_id": "unique-id",
+  "titulo": "NFQ Event Title",
+  "problema": "Description of the problem or challenge",
+  "solucion": "How you solved it",
+  "aprendizaje": "What you learned from this experience",
+  "fecha": "2025-10-27T00:00:00.000Z"
+}
+```
+
+### How MongoDB Events are Fetched
+
+The `mongodb.server.ts` file handles fetching NFQ events:
+
+```typescript app/lib/mongodb.server.ts
+export interface NfqEventRaw {
+  id: string;
+  title: string;
+  category: "nfq";
+  problema: string;
+  solucion: string;
+  aprendizaje: string;
+  start: string; // ISO string
+  color: string;
+}
+
+export async function getNfqEvents(): Promise<NfqEventRaw[]> {
+  const client = await getClient();
+  const db = process.env.MONGODB_DB ?? "portafolio";
+  const col = process.env.MONGODB_COLLECTION_NFQ ?? "nfq";
+  const docs = await client
+    .db(db)
+    .collection(col)
+    .find({})
+    .sort({ fecha: 1 })
+    .toArray();
+
+  return docs.map((doc) => ({
+    id: doc._id.toString(),
+    title: doc.titulo as string,
+    category: "nfq" as const,
+    problema: doc.problema as string,
+    solucion: doc.solucion as string,
+    aprendizaje: doc.aprendizaje as string,
+    start: new Date(doc.fecha as string | Date).toISOString(),
+    color: "#c084fc",
+  }));
+}
+```
+
+### Event Merging Logic
+
+The Calendar component merges local and MongoDB events:
+
+```typescript app/components/Calendar.tsx
+const EVENTS: CalEvent[] = useMemo(() => {
+  const staticNonNfq = calendarEvents.filter((e) => e.category !== "nfq");
+  const mongoNfq: CalEvent[] = nfqEvents.map((e) => ({
+    ...e,
+    start: new Date(e.start),
+  }));
+  return [...staticNonNfq, ...mongoNfq];
+}, [nfqEvents]);
+```
+
+**Key points:**
+- Static NFQ events in `textos.ts` are filtered out
+- MongoDB NFQ events are converted from ISO strings to Date objects
+- Both arrays are merged into a single `EVENTS` array
+
+### Adding a MongoDB Event
+
+<Steps>
+  <Step title="Connect to your MongoDB database">
+    Use MongoDB Compass, mongosh, or your preferred client.
+  </Step>
+
+  <Step title="Insert a new document">
+    ```json
+    {
+      "titulo": "New NFQ Project Launch",
+      "problema": "We needed to migrate legacy systems to a modern cloud architecture.",
+      "solucion": "Designed and implemented a phased migration strategy using AWS services.",
+      "aprendizaje": "Gained deep understanding of cloud architecture patterns and team coordination.",
+      "fecha": ISODate("2025-12-01T00:00:00Z")
+    }
+    ```
+  </Step>
+
+  <Step title="Refresh the application">
+    The event will automatically appear in the calendar on the next page load.
+  </Step>
+</Steps>
+
+## Ongoing Events
+
+Events without an `end` date (or with `end` far in the future) are marked as "ongoing":
+
+```typescript
+const isOngoing = (e: CalEvent) => !e.end || e.end.getFullYear() >= 2099;
+```
+
+Ongoing events display "Actualidad" (Present) as the end date.
+
+### Creating an Ongoing Event
+
+```typescript
+{
+  id: "current-project",
+  title: "Current Long-term Project",
+  category: "personal",
+  problema: "Building a complex system over time...",
+  solucion: "Iterative development and continuous improvement...",
+  aprendizaje: "Learning to balance long-term vision with short-term wins...",
+  start: new Date(2025, 0, 1),
+  // No end date = ongoing
+  color: "#34d399",
+}
+```
+
+Or explicitly set a far-future date:
+
+```typescript
+{
+  id: "ongoing-role",
+  title: "Current Position",
+  category: "nfq",
+  start: new Date(2025, 9, 1),
+  end: new Date(2099, 11, 31),  // Far future = ongoing
+  // ...
+}
+```
+
+## Event Colors
+
+Colors should match the company colors defined in `calendarCompanies`:
+
+```typescript
+everis:  "#07f1b7"  // Teal/green
+inetum:  "#818cf8"  // Purple/blue
+nfq:     "#c084fc"  // Pink/purple
+personal: "#34d399" // Green (suggested)
+```
+
+<Tip>
+Use consistent colors across categories to maintain visual coherence in the calendar UI.
+</Tip>
+
+## Event Display in Calendar
+
+Events are displayed:
+
+1. **In the calendar grid** - As colored indicators on the start date
+2. **In the sidebar** - Filterable by category
+3. **In the detail panel** - Full information when a date is selected
+
+### What Gets Displayed
+
+When a user clicks a date with events:
+
+```typescript
+// Event card shows:
+- Title
+- Time period (formatted: "Oct 2024 — Actualidad")
+- Problema section
+- Solución section
+- Aprendizaje section
+```
+
+<Frame>
+  <div style={{padding: "16px", background: "#1a1a1c", color: "white", borderRadius: "8px"}}>
+    <div style={{height: "3px", background: "#818cf8", marginBottom: "12px"}}></div>
+    <p style={{fontSize: "12px", fontWeight: "600", marginBottom: "4px"}}>Optimus Price — Inetum</p>
+    <p style={{fontSize: "9px", color: "#999", fontFamily: "monospace"}}>Oct 2024 — Jul 2025</p>
+    <div style={{marginTop: "12px"}}>
+      <p style={{fontSize: "8px", color: "#818cf8cc", textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: "bold"}}>PROBLEMA</p>
+      <p style={{fontSize: "10px", color: "#aaa"}}>Los precios se fijaban sin un modelo cuantitativo claro...</p>
+    </div>
+  </div>
+</Frame>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use descriptive IDs" icon="id-badge">
+    Event IDs should be unique and descriptive: `everis-internship`, `nfq-onboarding`
+  </Card>
+  
+  <Card title="Write clear problema/solucion" icon="lightbulb">
+    Focus on the challenge, your approach, and the outcome. Keep it concise but informative.
+  </Card>
+  
+  <Card title="Match category colors" icon="palette">
+    Always use the color from `calendarCompanies` for consistency
+  </Card>
+  
+  <Card title="Use MongoDB for frequent updates" icon="database">
+    If you're actively adding events for your current employer, use MongoDB instead of redeploying
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Events not showing in calendar">
+    Check:
+    - The date is correct (remember months are 0-indexed)
+    - The category exists in `calendarCompanies`
+    - The category filter is enabled in the sidebar
+    - The event's color matches the category color
+  </Accordion>
+
+  <Accordion title="MongoDB events not loading">
+    Verify:
+    - `MONGODB_URI` is correctly set in `.env`
+    - Database and collection names match
+    - MongoDB documents have all required fields: `titulo`, `problema`, `solucion`, `aprendizaje`, `fecha`
+    - The server has successfully connected (check logs)
+  </Accordion>
+
+  <Accordion title="Date showing incorrectly">
+    Remember:
+    - JavaScript months are 0-indexed: January = 0, December = 11
+    - Use `new Date(year, month, day)` format
+    - For MongoDB, use ISO date strings: `"2025-10-27T00:00:00.000Z"`
+  </Accordion>
+
+  <Accordion title="Event details not displaying">
+    Ensure:
+    - All three sections (`problema`, `solucion`, `aprendizaje`) have content
+    - The `start` date is a valid Date object
+    - The event's `category` matches one of the defined categories
+  </Accordion>
+</AccordionGroup>
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Portfolio Content" href="/customization/portfolio-content" icon="pen">
+    Learn about all content sections
+  </Card>
+  
+  <Card title="Terminal Data" href="/customization/terminal-data" icon="terminal">
+    Understand data structures and navigation
+  </Card>
+  
+  <Card title="MongoDB Setup" href="/deployment/mongodb-setup" icon="database">
+    Configure MongoDB for dynamic events
+  </Card>
+</CardGroup>

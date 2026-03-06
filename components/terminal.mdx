@@ -1,0 +1,475 @@
+---
+title: 'Terminal'
+description: 'Interactive command-line terminal with custom command system and tab completion'
+icon: 'terminal'
+---
+
+## Overview
+
+The `Terminal` component is an interactive, bash-style terminal emulator that serves as the primary navigation interface for the portfolio. It features a custom command system, tab completion, command history, and a virtual file system for browsing projects, work experience, and education.
+
+## Features
+
+- **Custom Commands**: `help`, `ls`, `cd`, `cat`, `open`, `ping`, `git init`, `whoami`, `about`, `clear`
+- **Tab Completion**: Auto-complete commands, directories, and files
+- **Command History**: Arrow up/down to navigate previous commands
+- **Virtual File System**: Navigate through `~/proyectos`, `~/trabajos`, and `~/estudios`
+- **Interactive Links**: Clickable URLs for projects and external resources
+- **Embedded Mode**: Can run standalone or embedded in a Window
+- **Responsive**: Adapts prompt and layout for mobile screens
+
+## Props
+
+<ParamField path="embedded" type="boolean" default="false">
+  Whether the terminal is embedded in a Window component. When `true`, removes outer container styling and title bar.
+</ParamField>
+
+## Types
+
+### Color
+
+```typescript
+type Color = "green" | "cyan" | "yellow" | "red" | "white" | "gray";
+```
+
+Available text colors for terminal output.
+
+### Line Types
+
+```typescript
+type Line =
+  | { id: number; type: "ascii" }                          // ASCII art header
+  | { id: number; type: "blank" }                          // Blank line
+  | { id: number; type: "command"; prompt: string; cmd: string }  // User input
+  | { id: number; type: "text"; text: string; color?: Color }     // Text output
+  | { id: number; type: "link"; label: string; url: string };    // Clickable link
+```
+
+## Usage Examples
+
+<CodeGroup>
+
+```tsx Standalone Terminal
+import Terminal from "./components/Terminal";
+
+function App() {
+  return <Terminal />;
+}
+```
+
+```tsx Embedded in Window
+import Terminal from "./components/Terminal";
+import Window from "./components/Window";
+
+function App() {
+  return (
+    <Window
+      title="visitor@javier.dev — terminal"
+      onClose={() => {}}
+      onMinimize={() => {}}
+      onFocus={() => {}}
+      zIndex={10}
+      defaultPosition={{ x: 140, y: 50 }}
+      width={720}
+      height={500}
+    >
+      <Terminal embedded />
+    </Window>
+  );
+}
+```
+
+```tsx From Desktop Component
+// Desktop.tsx
+function getContent(id: WinId): ReactNode {
+  switch (id) {
+    case "terminal": return <Terminal embedded />;
+    // ...
+  }
+}
+```
+
+</CodeGroup>
+
+## Command System
+
+### Available Commands
+
+| Command | Description | Example |
+|---------|-------------|----------|
+| `help` | Display all available commands | `help` |
+| `whoami` | Display identity and role | `whoami` |
+| `about` | Show detailed bio | `about` |
+| `ls` / `dir` | List directory contents | `ls` |
+| `cd <folder>` | Change directory | `cd proyectos` |
+| `cd ..` | Go back one directory | `cd ..` |
+| `cat <file>` | Read a file | `cat portfolio.txt` |
+| `open <file>` | Open/download a file | `open cv.pdf` |
+| `ping <project>` | Get project info + URL | `ping portfolio` |
+| `git init` | Show GitHub profile | `git init` |
+| `clear` | Clear terminal screen | `clear` |
+| `bot_javier` | AI chatbot (upcoming feature) | `bot_javier` |
+
+### Command Implementation
+
+Commands are executed through the `execute()` function:
+
+```typescript
+function execute(raw: string) {
+  const cmd = raw.trim();
+  if (!cmd) return;
+
+  push({ type: "command", prompt: promptStr, cmd });
+  setCmdHistory((h) => [cmd, ...h]);
+
+  const [command, ...rest] = cmd.split(/\s+/);
+  const arg = rest.join(" ");
+
+  switch (command.toLowerCase()) {
+    case "help":    cmdHelp();       break;
+    case "whoami":  cmdWhoami();     break;
+    case "ls":      cmdDir();        break;
+    case "cd":      cmdCd(arg);      break;
+    case "cat":     cmdCat(arg);     break;
+    case "open":    cmdOpen(arg);    break;
+    case "ping":    cmdPing(arg);    break;
+    case "clear":   setLines([...BOOT]); break;
+    // ...
+  }
+}
+```
+
+## File System Structure
+
+The terminal emulates a Unix-like file system:
+
+```
+~
+├── proyectos/
+│   ├── portfolio.txt
+│   ├── chatbot-ai.txt
+│   └── ...
+├── trabajos/
+│   ├── empresa1.txt
+│   ├── empresa2.txt
+│   └── ...
+└── estudios/
+    ├── universidad.txt
+    ├── master.txt
+    └── ...
+```
+
+### Navigation Example
+
+```bash
+~$ ls
+  proyectos/    estudios/    trabajos/
+
+~$ cd proyectos
+~/proyectos$ ls
+  portfolio.txt    chatbot-ai.txt    ecommerce.txt
+
+~/proyectos$ cat portfolio.txt
+  Portfolio Personal
+  ─────────────────────────────────────────────────
+  Descripción: Sitio web interactivo estilo macOS
+  Tech:        React · TypeScript · Tailwind CSS
+  URL:         https://javiernavas.dev
+```
+
+## Tab Completion
+
+Press `Tab` to auto-complete commands, directories, and files:
+
+```typescript
+function handleTab(e: React.KeyboardEvent<HTMLInputElement>) {
+  e.preventDefault();
+  if (!input.trim()) return;
+
+  const completions = getCompletions(input);
+  
+  if (completions.length === 1) {
+    // Single match → complete it
+    const parts = input.split(/\s+/);
+    if (parts.length === 1) {
+      setInput(completions[0] + " ");
+    } else {
+      parts[parts.length - 1] = completions[0];
+      setInput(parts.join(" ") + " ");
+    }
+  } else if (completions.length > 1) {
+    // Multiple matches → show options
+    push(
+      { type: "command", prompt: promptStr, cmd: input },
+      { type: "text", text: completions.join("    "), color: "cyan" },
+      { type: "blank" }
+    );
+  }
+}
+```
+
+### Completion Logic
+
+<CodeGroup>
+
+```typescript Command Completion
+// Complete command names
+if (parts.length === 1) {
+  const partial = parts[0].toLowerCase();
+  return COMMANDS.filter((c) => c.startsWith(partial));
+}
+```
+
+```typescript cd Completion
+if (command === "cd") {
+  const candidates = [...getSubdirs(path), ".."];
+  return candidates.filter((d) => d.startsWith(partial));
+}
+```
+
+```typescript cat Completion
+if (command === "cat") {
+  let files: string[] = [];
+  if (path === "~/proyectos")  files = proyectos.map((p) => p.slug + ".txt");
+  if (path === "~/trabajos")   files = trabajos.map((t) => t.slug + ".txt");
+  if (path === "~/estudios")   files = estudios.map((e) => e.slug + ".txt");
+  return files.filter((f) => f.startsWith(partial));
+}
+```
+
+```typescript ping Completion
+if (command === "ping") {
+  return proyectos.map((p) => p.slug).filter((s) => s.startsWith(partial));
+}
+```
+
+</CodeGroup>
+
+## Command History
+
+Navigate previous commands with arrow keys:
+
+```typescript
+function handleKey(e: KeyboardEvent<HTMLInputElement>) {
+  if (e.key === "ArrowUp") {
+    e.preventDefault();
+    const idx = Math.min(historyIdx + 1, cmdHistory.length - 1);
+    setHistoryIdx(idx);
+    if (cmdHistory[idx] !== undefined) setInput(cmdHistory[idx]);
+  } else if (e.key === "ArrowDown") {
+    e.preventDefault();
+    const idx = Math.max(historyIdx - 1, -1);
+    setHistoryIdx(idx);
+    setInput(idx === -1 ? "" : (cmdHistory[idx] ?? ""));
+  }
+}
+```
+
+History is stored in state:
+
+```typescript
+const [cmdHistory, setCmdHistory] = useState<string[]>([]);
+const [historyIdx, setHistoryIdx] = useState(-1);
+
+// Add to history on execute
+setCmdHistory((h) => [cmd, ...h]);
+```
+
+## Line Rendering
+
+Each line type renders differently:
+
+```typescript
+function RenderLine({ line }: { line: Line }) {
+  if (line.type === "blank") {
+    return <div className="h-2" />;
+  }
+
+  if (line.type === "ascii") {
+    return (
+      <pre className="text-cyan-400 leading-tight ...">
+        {ASCII}
+      </pre>
+    );
+  }
+
+  if (line.type === "command") {
+    return (
+      <div className="flex gap-2">
+        <span className="text-green-400">{line.prompt}</span>
+        <span className="text-gray-100">{line.cmd}</span>
+      </div>
+    );
+  }
+
+  if (line.type === "link") {
+    return (
+      <a href={line.url} target="_blank" className="text-cyan-400 underline ...">
+        {line.label}
+      </a>
+    );
+  }
+
+  // text
+  const cls = line.color ? COLOR_MAP[line.color] : "text-gray-300";
+  return <div className={cls}>{line.text}</div>;
+}
+```
+
+### Color Mapping
+
+```typescript
+const COLOR_MAP: Record<string, string> = {
+  green:  "text-green-400",
+  cyan:   "text-cyan-400",
+  yellow: "text-yellow-400",
+  red:    "text-red-400",
+  white:  "text-gray-100",
+  gray:   "text-gray-500",
+};
+```
+
+## ASCII Art Header
+
+Bootup sequence displays ASCII art:
+
+```typescript
+const ASCII = `
+     ██╗ █████╗ ██╗   ██╗██╗███████╗██████╗
+     ██║██╔══██╗██║   ██║██║██╔════╝██╔══██╗
+     ██║███████║██║   ██║██║█████╗  ██████╔╝
+██   ██║██╔══██║╚██╗ ██╔╝██║██╔══╝  ██╔══██╗
+╚█████╔╝██║  ██║ ╚████╔╝ ██║███████╗██║  ██║
+ ╚════╝ ╚═╝  ╚═╝  ╚═══╝  ╚═╝╚══════╝╚═╝  ╚═╝
+
+███╗   ██╗ █████╗ ██╗   ██╗ █████╗ ███████╗
+████╗  ██║██╔══██╗██║   ██║██╔══██╗██╔════╝
+██╔██╗ ██║███████║██║   ██║███████║███████╗
+██║╚██╗██║██╔══██║╚██╗ ██╔╝██╔══██║╚════██║
+██║ ╚████║██║  ██║ ╚████╔╝ ██║  ██║███████║
+╚═╝  ╚═══╝╚═╝  ╚═╝  ╚═══╝  ╚═╝  ╚═╝╚══════╝`;
+
+const BOOT: Line[] = [
+  { id: nextId(), type: "ascii" },
+  { id: nextId(), type: "blank" },
+  { id: nextId(), type: "text", text: "Bienvenido al portfolio de Javier Navas.  (v1.0.0)", color: "white" },
+  { id: nextId(), type: "text", text: SEP, color: "gray" },
+  { id: nextId(), type: "text", text: "Escribe `help` para ver los comandos disponibles.", color: "gray" },
+  { id: nextId(), type: "blank" },
+];
+```
+
+## Prompt Customization
+
+The prompt updates based on current directory:
+
+```typescript
+const [path, setPath] = useState("~");
+const { prompt: host } = textos.terminal; // "visitor@javier.dev"
+const promptStr = `${host}:${path}$`;
+
+// Examples:
+// visitor@javier.dev:~$
+// visitor@javier.dev:~/proyectos$
+// visitor@javier.dev:~/trabajos$
+```
+
+## Auto-scroll
+
+Terminal automatically scrolls to bottom on new output:
+
+```typescript
+const bottomRef = useRef<HTMLDivElement>(null);
+
+useEffect(() => {
+  bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+}, [lines]);
+
+// In render:
+<div ref={bottomRef} />
+```
+
+## Mobile Responsiveness
+
+The terminal adapts for smaller screens:
+
+```tsx
+<span className="text-green-400">
+  <span className="hidden md:inline">{host}:</span>
+  {shortPrompt}
+</span>
+```
+
+On mobile, shows `~$` instead of full `visitor@javier.dev:~$`.
+
+## Styling
+
+Terminal uses a dark monospace theme:
+
+```tsx
+<div className="
+  flex flex-col h-full 
+  bg-[#111111]            /* Deep black background */
+  font-mono               /* Monospace font */
+  text-xs md:text-sm      /* Responsive text size */
+  leading-relaxed         /* Comfortable line height */
+">
+```
+
+### Input Field
+
+```tsx
+<input
+  className="
+    flex-1 
+    bg-transparent          /* No background */
+    text-gray-100          /* Light text */
+    outline-none           /* No focus ring */
+    caret-cyan-400         /* Colored cursor */
+    min-w-0                /* Prevent overflow */
+  "
+  spellCheck={false}
+  autoComplete="off"
+  autoCorrect="off"
+  autoCapitalize="none"
+/>
+```
+
+## Integration with Content
+
+The terminal reads data from `textos.terminal`:
+
+```typescript
+import { textos } from "../textos";
+
+const { proyectos, trabajos, estudios, about, prompt } = textos.terminal;
+```
+
+This allows easy content updates without modifying component logic.
+
+## Focus Management
+
+Terminal auto-focuses on mount (desktop only):
+
+```typescript
+const inputRef = useRef<HTMLInputElement>(null);
+
+useEffect(() => {
+  if (window.innerWidth >= 768) inputRef.current?.focus();
+}, []);
+```
+
+Clicking anywhere in the terminal focuses the input:
+
+```tsx
+<div onClick={() => inputRef.current?.focus()}>
+  {/* Terminal content */}
+</div>
+```
+
+## Related Components
+
+- [Window](/components/window) - Container for embedded terminal
+- [Desktop](/components/desktop) - Manages terminal window state
+- [Dock](/components/dock) - Launches terminal window
+- [MenuBar](/components/menubar) - Top bar above terminal

@@ -1,0 +1,515 @@
+---
+title: Window Manager
+description: Understanding the Window component and react-draggable integration
+---
+
+The Window component (`app/components/Window.tsx`) provides a macOS-style draggable window with traffic light controls. It uses `react-draggable` for positioning and supports minimize, maximize, and close operations.
+
+## Window Component Props
+
+```typescript
+interface WindowProps {
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+  onMinimize: () => void;
+  onFocus: () => void;
+  zIndex: number;
+  defaultPosition: { x: number; y: number };
+  width?: number;
+  height?: number;
+  isMinimized?: boolean;
+}
+```
+
+### Prop Descriptions
+
+<ParamField path="title" type="string" required>
+  Window title displayed in the title bar (center)
+</ParamField>
+
+<ParamField path="children" type="React.ReactNode" required>
+  Content to render inside the window body
+</ParamField>
+
+<ParamField path="onClose" type="() => void" required>
+  Callback when red close button is clicked
+</ParamField>
+
+<ParamField path="onMinimize" type="() => void" required>
+  Callback when yellow minimize button is clicked
+</ParamField>
+
+<ParamField path="onFocus" type="() => void" required>
+  Callback when window is clicked (brings to front)
+</ParamField>
+
+<ParamField path="zIndex" type="number" required>
+  CSS z-index value (managed by Desktop component)
+</ParamField>
+
+<ParamField path="defaultPosition" type="{ x: number; y: number }" required>
+  Initial position on the desktop
+</ParamField>
+
+<ParamField path="width" type="number" default="720">
+  Window width in pixels
+</ParamField>
+
+<ParamField path="height" type="number" default="500">
+  Window height in pixels
+</ParamField>
+
+<ParamField path="isMinimized" type="boolean" default="false">
+  Whether the window is minimized (hidden)
+</ParamField>
+
+## Window Controls
+
+### Traffic Light Buttons
+
+The Window component features macOS-style traffic light controls:
+
+```tsx
+<div className="flex items-center gap-1.5">
+  {/* Close (Red) */}
+  <button
+    onMouseDown={(e) => e.stopPropagation()}
+    onClick={(e) => { e.stopPropagation(); onClose(); }}
+    className="win-btn w-4 h-4 rounded-full bg-[#ff5f56] hover:brightness-125 transition-all group relative"
+  >
+    <span className="absolute inset-0 flex items-center justify-center text-[8px] text-black/70 opacity-0 group-hover:opacity-100 font-bold leading-none">✕</span>
+  </button>
+
+  {/* Minimize (Yellow) */}
+  <button
+    onMouseDown={(e) => e.stopPropagation()}
+    onClick={(e) => { e.stopPropagation(); onMinimize(); }}
+    className="win-btn w-4 h-4 rounded-full bg-[#ffbd2e] hover:brightness-125 transition-all group relative"
+  >
+    <span className="absolute inset-0 flex items-center justify-center text-[8px] text-black/70 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
+  </button>
+
+  {/* Maximize (Green) */}
+  <button
+    onMouseDown={(e) => e.stopPropagation()}
+    onClick={(e) => { e.stopPropagation(); setIsMaximized((v) => !v); }}
+    className="win-btn w-4 h-4 rounded-full bg-[#27c93f] hover:brightness-125 transition-all group relative"
+  >
+    <span className="absolute inset-0 flex items-center justify-center text-[8px] text-black/70 opacity-0 group-hover:opacity-100 font-bold leading-none">
+      {isMaximized ? "⤡" : "⤢"}
+    </span>
+  </button>
+</div>
+```
+
+**Key implementation details:**
+
+<Accordion title="Event Propagation Handling">
+```typescript
+onMouseDown={(e) => e.stopPropagation()}
+onClick={(e) => { e.stopPropagation(); onClose(); }}
+```
+
+- `stopPropagation()` prevents the click from bubbling to the title bar
+- Without this, clicking a button would trigger both the button action AND start dragging
+- Applied to both `onMouseDown` and `onClick` for safety
+</Accordion>
+
+<Accordion title="Hover Icon Display">
+```css
+opacity-0 group-hover:opacity-100
+```
+
+- Icons (✕, −, ⤢) are hidden by default
+- Revealed on hover using Tailwind's `group-hover` utility
+- Creates authentic macOS behavior
+</Accordion>
+
+<Accordion title="CSS Class Strategy">
+```css
+win-btn
+```
+
+- Custom class used by `react-draggable` to prevent dragging
+- Added to `cancel=".win-btn"` prop in Draggable component
+- Ensures buttons are clickable, not draggable
+</Accordion>
+
+### Maximize State Management
+
+```typescript
+const [isMaximized, setIsMaximized] = useState(false);
+```
+
+Maximize is the only state managed **inside** the Window component (not in Desktop):
+
+```typescript
+style={{
+  isMaximized
+    ? {
+        zIndex,
+        position: "fixed",
+        top: 28,
+        left: 0,
+        width: "100vw",
+        height: "calc(100vh - 28px - 80px)",  // Exclude MenuBar and Dock
+        visibility: isMinimized ? "hidden" : "visible",
+        pointerEvents: isMinimized ? "none" : "auto",
+      }
+    : {
+        zIndex,
+        width,
+        height,
+        visibility: isMinimized ? "hidden" : "visible",
+        pointerEvents: isMinimized ? "none" : "auto",
+      }
+}}
+```
+
+**Maximized window behavior:**
+- `position: fixed` removes it from Draggable control
+- `top: 28` accounts for MenuBar height
+- Height calculation: `100vh - 28px (MenuBar) - 80px (Dock)`
+- When maximized, window cannot be dragged
+
+## React Draggable Integration
+
+```tsx
+<Draggable
+  nodeRef={nodeRef as React.RefObject<HTMLElement>}
+  handle=".win-titlebar"
+  cancel=".win-btn"
+  defaultPosition={defaultPosition}
+  bounds={{ top: 30, left: 0 }}
+>
+  {windowContent}
+</Draggable>
+```
+
+### Configuration Breakdown
+
+<Accordion title="nodeRef Pattern">
+```typescript
+const nodeRef = useRef<HTMLDivElement>(null);
+
+<div ref={nodeRef} style={{ zIndex, width, height }}>
+  {/* window content */}
+</div>
+```
+
+**Why use nodeRef?**
+- Avoids React `findDOMNode` deprecation warning
+- Provides direct reference to draggable element
+- Required by react-draggable v4+
+</Accordion>
+
+<Accordion title="handle Selector">
+```typescript
+handle=".win-titlebar"
+```
+
+Only the title bar can initiate dragging:
+
+```tsx
+<div className="win-titlebar shrink-0 flex items-center gap-2 px-4 py-2.5 bg-[#2a2a2a] border-b border-white/10 cursor-move select-none">
+  {/* Traffic lights and title */}
+</div>
+```
+
+- `cursor-move` indicates draggable area
+- `select-none` prevents text selection during drag
+</Accordion>
+
+<Accordion title="cancel Selector">
+```typescript
+cancel=".win-btn"
+```
+
+Prevents dragging when clicking traffic light buttons:
+
+```tsx
+<button className="win-btn w-4 h-4 rounded-full bg-[#ff5f56]">
+  {/* Close button */}
+</button>
+```
+
+Without `cancel`, clicking a button would start dragging the window.
+</Accordion>
+
+<Accordion title="bounds Property">
+```typescript
+bounds={{ top: 30, left: 0 }}
+```
+
+**Constraints:**
+- `top: 30` prevents dragging above MenuBar
+- `left: 0` prevents dragging off left edge
+- No `right` or `bottom` bounds (windows can move off-screen)
+
+**Why allow off-screen dragging?**
+Matches macOS behavior where windows can be partially dragged off-screen.
+</Accordion>
+
+## Minimize Implementation
+
+```typescript
+visibility: isMinimized ? "hidden" : "visible",
+pointerEvents: isMinimized ? "none" : "auto",
+```
+
+**Minimized windows are:**
+- Hidden with `visibility: hidden` (not `display: none`)
+- Non-interactive with `pointerEvents: none`
+- Still in the DOM (preserves state)
+- Can be restored by clicking dock icon
+
+**Why not use `display: none`?**
+- Preserves component state during minimize/restore
+- Avoids re-mounting and losing scroll position, form inputs, etc.
+- Maintains react-draggable position state
+
+## Window Structure
+
+```tsx
+<div
+  ref={nodeRef}
+  style={/* dynamic styles */}
+  className="flex flex-col bg-[#1e1e1e]/95 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/70 overflow-hidden absolute rounded-xl"
+  onMouseDown={onFocus}
+>
+  {/* Title bar */}
+  <div className="win-titlebar shrink-0 flex items-center gap-2 px-4 py-2.5 bg-[#2a2a2a] border-b border-white/10 cursor-move select-none">
+    <div className="flex items-center gap-1.5">
+      {/* Traffic light buttons */}
+    </div>
+    <span className="flex-1 text-center text-xs text-gray-400 font-mono truncate px-4">
+      {title}
+    </span>
+  </div>
+
+  {/* Content */}
+  <div className="flex-1 overflow-auto">
+    {children}
+  </div>
+</div>
+```
+
+### Layout Classes
+
+<Accordion title="Window Container">
+```css
+flex flex-col
+```
+Vertical layout: title bar on top, content below
+
+```css
+bg-[#1e1e1e]/95 backdrop-blur-xl
+```
+Semi-transparent dark background with blur effect (glassmorphism)
+
+```css
+absolute rounded-xl
+```
+- `absolute` for react-draggable positioning
+- `rounded-xl` for macOS-style rounded corners
+</Accordion>
+
+<Accordion title="Title Bar">
+```css
+shrink-0
+```
+Prevents title bar from shrinking when window height is small
+
+```css
+cursor-move select-none
+```
+- `cursor-move` indicates draggable area
+- `select-none` prevents accidental text selection during drag
+</Accordion>
+
+<Accordion title="Content Area">
+```css
+flex-1 overflow-auto
+```
+- `flex-1` takes remaining height after title bar
+- `overflow-auto` adds scrollbars when content exceeds window size
+</Accordion>
+
+## Creating Windows
+
+### Static Window Example
+
+```tsx
+import Desktop from "./components/Desktop";
+
+// In Desktop component's INITIAL_WINDOWS:
+{
+  id: "terminal",
+  title: "visitor@javier.dev — terminal",
+  isOpen: true,
+  isMinimized: false,
+  zIndex: 10,
+  defaultPosition: { x: 140, y: 50 },
+  width: 720,
+  height: 500,
+}
+
+// Rendered by Desktop:
+<Window
+  key="terminal"
+  title="visitor@javier.dev — terminal"
+  onClose={() => closeWindow("terminal")}
+  onMinimize={() => minimizeWindow("terminal")}
+  onFocus={() => bringToFront("terminal")}
+  zIndex={10}
+  defaultPosition={{ x: 140, y: 50 }}
+  width={720}
+  height={500}
+  isMinimized={false}
+>
+  <Terminal embedded />
+</Window>
+```
+
+### Dynamic Window Example
+
+```tsx
+// Created by openDoc() in Desktop:
+const openDoc = useCallback((title: string, content: ReactNode) => {
+  topZRef.current += 1;
+  const z = topZRef.current;
+  const id = `doc-${Date.now()}`;
+  const offset = (topZRef.current % 6) * 18;
+  
+  setDynWindows((ws) => [...ws, {
+    id,
+    title,
+    content,
+    isMinimized: false,
+    zIndex: z,
+    defaultPosition: { x: 260 + offset, y: 50 + offset },
+  }]);
+}, []);
+
+// Usage in Finder component:
+<TxtFileIcon
+  name="arcadiax"
+  onOpen={() => openDoc("arcadiax.txt", <ProyectoDoc p={proyectoData} />)}
+/>
+```
+
+## Positioning Best Practices
+
+<Card title="Cascading Windows" icon="layer-group">
+```typescript
+const offset = (topZRef.current % 6) * 18;
+defaultPosition: { x: 260 + offset, y: 50 + offset }
+```
+
+Dynamic windows cascade diagonally:
+- Offset increases by 18px for each new window
+- Resets every 6 windows (modulo operation)
+- Prevents windows from stacking exactly on top of each other
+</Card>
+
+<Card title="Safe Zone Coordinates" icon="shield-alt">
+**Recommended position ranges:**
+- `x`: 100–400 (visible on most screens)
+- `y`: 40–100 (below MenuBar, good visibility)
+
+**Avoid:**
+- `y < 30`: Overlaps with MenuBar
+- `x < 0` or `y < 0`: Off-screen on load
+</Card>
+
+<Card title="Window Size Guidelines" icon="expand">
+**Common window sizes:**
+- Terminal: 720×500 (wide for command output)
+- Finder: 640×400 (balanced for file browsing)
+- Documents: 480×420 (compact for text)
+- Photos: 700×480 (landscape photo viewing)
+- Calendar: 820×520 (large for month view)
+</Card>
+
+## Advanced Patterns
+
+### Conditional Rendering Based on Maximize State
+
+```tsx
+if (isMaximized) {
+  return windowContent;  // No Draggable wrapper
+}
+
+return (
+  <Draggable {...props}>
+    {windowContent}
+  </Draggable>
+);
+```
+
+**Why?**
+- Maximized windows should not be draggable
+- Avoids react-draggable trying to position a fixed element
+- Returns same `windowContent` JSX in both cases
+
+### Focus Management
+
+```tsx
+<div
+  ref={nodeRef}
+  onMouseDown={onFocus}
+  {/* ... */}
+>
+```
+
+Calling `onFocus` on `mouseDown` (not `onClick`):
+- Triggers immediately when window is clicked
+- Brings window to front before drag starts
+- Ensures dragging always moves the topmost window
+
+## Accessibility
+
+<Warning>
+The current Window implementation lacks keyboard accessibility:
+- No focus trap inside modals
+- Traffic light buttons not keyboard accessible
+- No `aria-label` on controls
+- No Escape key to close
+
+Consider adding:
+```tsx
+<button
+  aria-label="Close window"
+  onKeyDown={(e) => e.key === 'Escape' && onClose()}
+  {/* ... */}
+>
+```
+</Warning>
+
+## Performance Considerations
+
+<Card title="Re-render Optimization" icon="bolt">
+- Window component is pure (no internal side effects)
+- Position managed by react-draggable, not React state
+- Only re-renders when props change
+- Minimize state changes in parent Desktop component
+</Card>
+
+<Card title="Visibility vs Display" icon="eye-slash">
+```typescript
+visibility: isMinimized ? "hidden" : "visible"
+```
+
+**Benefits of `visibility: hidden`:**
+- Preserves component state during minimize
+- Avoids expensive re-mounts
+- Maintains scroll position and form inputs
+- Faster restore than unmounting/remounting
+</Card>
+
+## See Also
+
+- [Desktop System](/concepts/desktop-system) - Window state management
+- [Components: Window](/components/desktop/window) - Full component API
+- [react-draggable docs](https://github.com/react-grid-layout/react-draggable) - Library documentation

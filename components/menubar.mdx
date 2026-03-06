@@ -1,0 +1,454 @@
+---
+title: 'MenuBar'
+description: 'macOS-style top system bar with branding and real-time clock'
+icon: 'bars-staggered'
+---
+
+## Overview
+
+The `MenuBar` component renders a macOS-inspired system bar at the top of the screen. It displays the portfolio branding on the left and a live clock with date on the right, creating an authentic desktop OS experience.
+
+## Features
+
+- **Fixed Top Bar**: Always visible at the top of the viewport
+- **Live Clock**: Updates every second with current time
+- **Date Display**: Shows weekday, month, and day
+- **Glassmorphism**: Translucent background with backdrop blur
+- **Responsive**: Hides some elements on small screens
+- **No Props Required**: Self-contained component
+
+## Props
+
+The MenuBar component accepts no props. It's a fully self-contained component.
+
+```typescript
+export default function MenuBar() {
+  // ...
+}
+```
+
+## Usage Examples
+
+<CodeGroup>
+
+```tsx Basic Usage
+import MenuBar from "./components/MenuBar";
+
+function App() {
+  return (
+    <div className="relative h-screen">
+      <MenuBar />
+      {/* Rest of application */}
+    </div>
+  );
+}
+```
+
+```tsx From Desktop Component
+import MenuBar from "./MenuBar";
+import Dock from "./Dock";
+
+export default function Desktop() {
+  return (
+    <div className="w-screen h-screen overflow-hidden relative">
+      <MenuBar />
+      
+      {/* Desktop area */}
+      <div className="absolute top-7 left-0 right-0 bottom-20 overflow-hidden">
+        {/* Windows, icons, etc. */}
+      </div>
+
+      <Dock items={dockItems} />
+    </div>
+  );
+}
+```
+
+```tsx With Custom Layout
+import MenuBar from "./components/MenuBar";
+
+function CustomLayout() {
+  return (
+    <>
+      <MenuBar />
+      <main className="pt-7">  {/* 28px padding for MenuBar height */}
+        <YourContent />
+      </main>
+    </>
+  );
+}
+```
+
+</CodeGroup>
+
+## Structure
+
+The MenuBar is a fixed bar with two sections:
+
+```tsx
+<div className="
+  fixed top-0 left-0 right-0 
+  h-7                          /* 28px height */
+  bg-black/50                  /* Semi-transparent black */
+  backdrop-blur-xl             /* Blur background content */
+  border-b border-white/10     /* Subtle bottom border */
+  flex items-center justify-between 
+  px-4 
+  z-[9999]                     /* Above all content */
+  select-none                  /* Prevent text selection */
+">
+  {/* Left section: Branding */}
+  <div className="flex items-center gap-4 text-white text-xs">
+    {/* Content */}
+  </div>
+
+  {/* Right section: Time & Date */}
+  <div className="flex items-center gap-3 text-white text-xs">
+    {/* Content */}
+  </div>
+</div>
+```
+
+## Left Section: Branding
+
+The left side displays the Apple logo and portfolio branding:
+
+```tsx
+<div className="flex items-center gap-4 text-white text-xs">
+  {/* Apple logo */}
+  <span className="text-lg leading-none"></span>
+  
+  {/* Name */}
+  <span className="
+    font-semibold 
+    hover:bg-white/10 
+    px-2 py-0.5 
+    rounded 
+    cursor-default 
+    transition-colors
+  ">
+    Javier Navas
+  </span>
+  
+  {/* Portfolio label (hidden on mobile) */}
+  <span className="
+    text-white/50 
+    hover:bg-white/10 
+    px-2 py-0.5 
+    rounded 
+    cursor-default 
+    transition-colors 
+    hidden sm:inline
+  ">
+    Portfolio
+  </span>
+</div>
+```
+
+### Hover Effects
+
+Each text item has a subtle hover effect:
+
+```css
+hover:bg-white/10        /* Slight background on hover */
+px-2 py-0.5              /* Padding for clickable feel */
+rounded                  /* Rounded corners */
+cursor-default           /* Standard cursor (not pointer) */
+transition-colors        /* Smooth color transition */
+```
+
+This mimics macOS menu items without actual menu functionality.
+
+## Right Section: Time & Date
+
+The right side shows live time and date:
+
+```tsx
+<div className="flex items-center gap-3 text-white text-xs">
+  {/* Date (hidden on mobile) */}
+  <span className="text-white/60 hidden sm:inline">{dateStr}</span>
+  
+  {/* Time */}
+  <span className="font-medium">{timeStr}</span>
+</div>
+```
+
+### Time Update Logic
+
+The component uses `setInterval` to update every second:
+
+```typescript
+import { useState, useEffect } from "react";
+
+export default function MenuBar() {
+  const [time, setTime] = useState(new Date());
+
+  useEffect(() => {
+    const interval = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Format time and date
+  const timeStr = time.toLocaleTimeString("es-ES", { 
+    hour: "2-digit", 
+    minute: "2-digit" 
+  });
+  
+  const dateStr = time.toLocaleDateString("es-ES", { 
+    weekday: "short", 
+    month: "short", 
+    day: "numeric" 
+  });
+
+  // Render...
+}
+```
+
+### Formatting
+
+<CodeGroup>
+
+```typescript Time Format
+const timeStr = time.toLocaleTimeString("es-ES", { 
+  hour: "2-digit", 
+  minute: "2-digit" 
+});
+// Output: "14:30"
+```
+
+```typescript Date Format
+const dateStr = time.toLocaleDateString("es-ES", { 
+  weekday: "short",  // "lun", "mar", etc.
+  month: "short",    // "ene", "feb", etc.
+  day: "numeric"     // "6", "15", etc.
+});
+// Output: "vie, mar 6"
+```
+
+</CodeGroup>
+
+### Cleanup
+
+The interval is properly cleaned up on unmount:
+
+```typescript
+useEffect(() => {
+  const interval = setInterval(() => setTime(new Date()), 1000);
+  return () => clearInterval(interval);  // Cleanup
+}, []);
+```
+
+## Styling
+
+The MenuBar uses glassmorphism for a modern macOS look:
+
+### Background Effect
+
+```css
+bg-black/50          /* 50% black opacity */
+backdrop-blur-xl     /* Strong blur on content behind */
+border-b border-white/10  /* Subtle bottom border */
+```
+
+This creates a translucent bar that shows blurred content beneath it.
+
+### Typography
+
+```css
+text-xs              /* Small text (12px) */
+text-white           /* White text */
+text-white/50        /* 50% opacity for secondary items */
+text-white/60        /* 60% opacity for date */
+font-semibold        /* Bold name */
+font-medium          /* Medium weight time */
+```
+
+### Spacing
+
+```css
+h-7                  /* 28px height */
+px-4                 /* 16px horizontal padding */
+gap-4                /* 16px gap between items (left section) */
+gap-3                /* 12px gap between items (right section) */
+```
+
+## Z-Index
+
+The MenuBar uses `z-[9999]` to ensure it stays above all content:
+
+```css
+z-[9999]             /* Highest z-index */
+```
+
+This matches the Dock's z-index, keeping both system UI elements on top.
+
+## Responsive Design
+
+On small screens, some elements are hidden:
+
+```tsx
+{/* Portfolio label - only visible on sm+ screens */}
+<span className="... hidden sm:inline">
+  Portfolio
+</span>
+
+{/* Date - only visible on sm+ screens */}
+<span className="... hidden sm:inline">{dateStr}</span>
+```
+
+This prevents text overflow on mobile devices while keeping the time always visible.
+
+### Breakpoints
+
+Tailwind's `sm:` breakpoint is 640px:
+
+- **< 640px**: Shows logo, name, and time only
+- **≥ 640px**: Shows logo, name, "Portfolio" label, date, and time
+
+## Performance Considerations
+
+### Interval Optimization
+
+The component updates every second, which is efficient for a clock:
+
+```typescript
+setInterval(() => setTime(new Date()), 1000);  // 1 second interval
+```
+
+For even better performance on low-end devices, consider:
+
+```typescript
+// Update only when minute changes
+setInterval(() => {
+  const now = new Date();
+  if (now.getSeconds() === 0) {
+    setTime(now);
+  }
+}, 1000);
+```
+
+However, this adds complexity and the current approach is perfectly fine.
+
+### Render Optimization
+
+The component is lightweight and doesn't need memoization. Each re-render updates only the time strings.
+
+## Customization
+
+### Change Height
+
+```tsx
+<div className="h-7">  {/* Default: 28px */}
+<div className="h-8">  {/* Taller: 32px */}
+<div className="h-6">  {/* Shorter: 24px */}
+```
+
+Remember to update the Desktop's top offset:
+
+```tsx
+<div className="absolute top-7 ...">  {/* Match MenuBar height */}
+```
+
+### Change Colors
+
+```tsx
+{/* Default: Black translucent */}
+className="bg-black/50 backdrop-blur-xl"
+
+{/* Dark gray translucent */}
+className="bg-gray-900/50 backdrop-blur-xl"
+
+{/* White translucent (light mode) */}
+className="bg-white/70 backdrop-blur-xl text-black"
+```
+
+### Add Menu Items
+
+```tsx
+<div className="flex items-center gap-4 text-white text-xs">
+  <span className="text-lg leading-none"></span>
+  <span className="font-semibold ...">Javier Navas</span>
+  <span className="...">Portfolio</span>
+  
+  {/* Add custom menu items */}
+  <span className="hover:bg-white/10 px-2 py-0.5 rounded cursor-pointer">
+    About
+  </span>
+  <span className="hover:bg-white/10 px-2 py-0.5 rounded cursor-pointer">
+    Projects
+  </span>
+</div>
+```
+
+### Change Locale
+
+```typescript
+// Spanish (default)
+time.toLocaleTimeString("es-ES", { ... });
+time.toLocaleDateString("es-ES", { ... });
+
+// English
+time.toLocaleTimeString("en-US", { ... });
+time.toLocaleDateString("en-US", { ... });
+
+// Use user's locale
+time.toLocaleTimeString(navigator.language, { ... });
+time.toLocaleDateString(navigator.language, { ... });
+```
+
+## Integration with Desktop
+
+The MenuBar is rendered at the top level of the Desktop component:
+
+```tsx
+// Desktop.tsx
+export default function Desktop() {
+  return (
+    <div className="w-screen h-screen overflow-hidden relative">
+      {/* MenuBar at top */}
+      <MenuBar />
+
+      {/* Desktop area - top: 28px to avoid overlap */}
+      <div className="absolute top-7 left-0 right-0 bottom-20 overflow-hidden">
+        {/* Folder icons, windows, etc. */}
+      </div>
+
+      {/* Dock at bottom */}
+      <Dock items={dockItems} />
+    </div>
+  );
+}
+```
+
+The Desktop reserves:
+- **Top 28px** (`top-7`): MenuBar space
+- **Bottom 80px** (`bottom-20`): Dock space
+- **Middle area**: Workspace for windows and icons
+
+## Accessibility
+
+The MenuBar is marked as non-interactive:
+
+```css
+select-none          /* Prevent text selection */
+cursor-default       /* Default cursor, not pointer */
+```
+
+### Recommendations
+
+For improved accessibility, consider:
+
+```tsx
+<div 
+  className="..."
+  role="banner"                    // ARIA role
+  aria-label="System menu bar"    // Screen reader label
+>
+```
+
+## Related Components
+
+- [Desktop](/components/desktop) - Parent container that includes MenuBar
+- [Dock](/components/dock) - Bottom counterpart to the MenuBar
+- [Window](/components/window) - Windows positioned below the MenuBar
+- [Terminal](/components/terminal) - Applications displayed in the workspace
