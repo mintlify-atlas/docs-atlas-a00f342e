@@ -1,0 +1,100 @@
+{
+  "projectType": "frontend",
+  "projectName": "Portfolio Javier Navas",
+  "projectDescription": "An interactive macOS-inspired portfolio website built with React Router, featuring a desktop UI with draggable windows, terminal interface, and dynamic content.",
+  "theme": "palm",
+  "primaryColor": "#07f1b7",
+  "lightColor": "#818cf8",
+  "darkColor": "#c084fc",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Overview",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "features"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/desktop-system",
+              "concepts/window-manager",
+              "concepts/terminal-commands"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Components",
+        "groups": [
+          {
+            "group": "UI Components",
+            "pages": [
+              "components/desktop",
+              "components/window",
+              "components/terminal",
+              "components/dock",
+              "components/menubar"
+            ]
+          },
+          {
+            "group": "Content Components",
+            "pages": [
+              "components/calendar",
+              "components/photo-gallery",
+              "components/folder-icon"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Customization",
+        "groups": [
+          {
+            "group": "Content",
+            "pages": [
+              "customization/portfolio-content",
+              "customization/terminal-data",
+              "customization/calendar-events"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/docker",
+              "deployment/mongodb-setup",
+              "deployment/environment-variables"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "macOS-inspired desktop interface with draggable windows",
+    "Interactive terminal with custom commands and tab completion",
+    "Dynamic calendar with MongoDB integration for events",
+    "Photo gallery with viewer component",
+    "Project, experience, and education file browser",
+    "Responsive design with mobile optimization",
+    "Server-side rendering with React Router 7",
+    "Docker deployment support"
+  ],
+  "publicApiSurface": [
+    "Desktop - Main desktop environment component",
+    "Window - Draggable window component with minimize/maximize",
+    "Terminal - Interactive terminal with command system",
+    "Calendar - Event calendar with company filtering",
+    "PhotoGallery - Grid-based photo browser",
+    "Dock - Application dock with launch icons",
+    "MenuBar - Top menu bar component",
+    "FolderIcon - Desktop folder icon component",
+    "getNfqEvents() - MongoDB loader for calendar events",
+    "textos - Content configuration object"
+  ]
+}
